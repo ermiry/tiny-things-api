@@ -1,4 +1,4 @@
-TARGET      := tiny-pocket-api
+TARGET      := tiny-things-api
 
 PTHREAD 	:= -l pthread
 MATH 		:= -lm
@@ -9,7 +9,7 @@ CMONGO 		:= `pkg-config --libs --cflags libmongoc-1.0`
 
 CERVER		:= -l cerver
 
-DEVELOPMENT	:= -g -D POCKET_DEBUG
+DEVELOPMENT	:= -g -D THINGS_DEBUG
 
 CC          := gcc
 
