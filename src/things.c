@@ -183,3 +183,32 @@ unsigned int things_end (void) {
 }
 
 #pragma endregion
+
+#pragma region routes
+
+// GET api/things/
+void things_handler (CerverReceive *cr, HttpRequest *request) {
+
+	http_response_json_msg_send (cr, 200, "Things works!");
+
+}
+
+// GET api/things/version
+void things_version_handler (CerverReceive *cr, HttpRequest *request) {
+
+	char *status = c_string_create ("%s - %s", THINGS_VERSION_NAME, THINGS_VERSION_DATE);
+	if (status) {
+		http_response_json_msg_send (cr, 200, status);
+		free (status);
+	}
+
+}
+
+// GET api/things/auth
+void things_auth_handler (CerverReceive *cr, HttpRequest *request) {
+
+	http_response_json_msg_send (cr, 200, "Things auth!");
+
+}
+
+#pragma endregion

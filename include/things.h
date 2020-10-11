@@ -22,4 +22,17 @@ extern unsigned int things_end (void);
 
 #pragma endregion
 
+#pragma region routes
+
+// GET api/things/
+extern void things_handler (CerverReceive *cr, HttpRequest *request);
+
+// GET api/things/version
+extern void things_version_handler (CerverReceive *cr, HttpRequest *request);
+
+// GET api/things/auth
+extern void things_auth_handler (CerverReceive *cr, HttpRequest *request);
+
+#pragma endregion
+
 #endif
