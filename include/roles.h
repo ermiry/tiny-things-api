@@ -1,9 +1,13 @@
 #ifndef _THINGS_ROLES_H_
 #define _THINGS_ROLES_H_
 
-#include "cerver/types/string.h"
+#include <cerver/types/string.h>
 
 #include <bson/bson.h>
+
+#include "models/role.h"
+
+extern const Role *common_role;
 
 extern unsigned int things_roles_init (void);
 
