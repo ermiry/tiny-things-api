@@ -302,12 +302,10 @@ bool mongo_check (mongoc_collection_t *collection, bson_t *query) {
 
 	if (collection && query) {
 		bson_error_t error = { 0 };
-		if (mongoc_collection_count_documents (collection, query, NULL, NULL, NULL, &error) >= 0) {
-			retval = true;
-		}
-
-		else {
-			cerver_log_error ("%s", error.message);
+		switch (mongoc_collection_count_documents (collection, query, NULL, NULL, NULL, &error)) {
+			case -1: cerver_log_error ("%s", error.message); break;
+			case 0: break;
+			default: retval = true; break;
 		}
 
 		bson_destroy (query);
@@ -370,6 +368,25 @@ mongoc_cursor_t *mongo_find_all_cursor (
 			if (opts) bson_destroy (opts);
 			bson_destroy (query);
 		}
+	}
+
+	return cursor;
+
+}
+
+// uses a query to find all matching docs with the specified options
+// query gets destroyed, options remain the same
+mongoc_cursor_t *mongo_find_all_cursor_with_opts (
+	mongoc_collection_t *collection, 
+	bson_t *query, const bson_t *opts
+) {
+
+	mongoc_cursor_t *cursor = NULL;
+	
+	if (collection && query) {
+		cursor = mongoc_collection_find_with_opts (collection, query, opts, NULL);
+
+		bson_destroy (query);
 	}
 
 	return cursor;
