@@ -28,7 +28,22 @@
 #pragma region main
 
 const String *PORT = NULL;
+
 static const String *MONGO_URI = NULL;
+static const String *MONGO_APP_NAME = NULL;
+static const String *MONGO_DB = NULL;
+
+unsigned int CERVER_RECEIVE_BUFFER_SIZE = 4096;
+unsigned int CERVER_TH_THREADS = 4;
+
+HttpResponse *oki_doki = NULL;
+HttpResponse *bad_request = NULL;
+HttpResponse *server_error = NULL;
+HttpResponse *bad_user = NULL;
+HttpResponse *missing_values = NULL;
+
+static HttpResponse *things_works = NULL;
+static HttpResponse *current_version = NULL;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -46,6 +61,44 @@ static unsigned int things_env_get_port (void) {
 
 	else {
 		cerver_log_error ("Failed to get PORT from env!");
+	}
+
+	return retval;
+
+}
+
+static unsigned int things_env_get_mongo_app_name (void) {
+
+	unsigned int retval = 1;
+
+	char *mongo_app_name_env = getenv ("MONGO_APP_NAME");
+	if (mongo_app_name_env) {
+		MONGO_APP_NAME = str_new (mongo_app_name_env);
+
+		retval = 0;
+	}
+
+	else {
+		cerver_log_error ("Failed to get MONGO_APP_NAME from env!");
+	}
+
+	return retval;
+
+}
+
+static unsigned int things_env_get_mongo_db (void) {
+
+	unsigned int retval = 1;
+
+	char *mongo_db_env = getenv ("MONGO_DB");
+	if (mongo_db_env) {
+		MONGO_DB = str_new (mongo_db_env);
+
+		retval = 0;
+	}
+
+	else {
+		cerver_log_error ("Failed to get MONGO_DB from env!");
 	}
 
 	return retval;
@@ -71,6 +124,41 @@ static unsigned int things_env_get_mongo_uri (void) {
 
 }
 
+static void gepp_env_get_cerver_receive_buffer_size (void) {
+
+	char *buffer_size = getenv ("CERVER_RECEIVE_BUFFER_SIZE");
+	if (buffer_size) {
+		CERVER_RECEIVE_BUFFER_SIZE = (unsigned int) atoi (buffer_size);
+		cerver_log_success (
+			"CERVER_RECEIVE_BUFFER_SIZE -> %d\n", CERVER_RECEIVE_BUFFER_SIZE
+		);
+	}
+
+	else {
+		cerver_log_warning (
+			"Failed to get CERVER_RECEIVE_BUFFER_SIZE from env - using default %d!",
+			CERVER_RECEIVE_BUFFER_SIZE
+		);
+	}
+}
+
+static void gepp_env_get_cerver_th_threads (void) {
+
+	char *th_threads = getenv ("CERVER_TH_THREADS");
+	if (th_threads) {
+		CERVER_TH_THREADS = (unsigned int) atoi (th_threads);
+		cerver_log_success ("CERVER_TH_THREADS -> %d\n", CERVER_TH_THREADS);
+	}
+
+	else {
+		cerver_log_warning (
+			"Failed to get CERVER_TH_THREADS from env - using default %d!",
+			CERVER_TH_THREADS
+		);
+	}
+
+}
+
 #pragma GCC diagnostic pop
 
 static unsigned int things_init_env (void) {
@@ -80,6 +168,10 @@ static unsigned int things_init_env (void) {
 	errors |= things_env_get_port ();
 
 	errors |= things_env_get_mongo_uri ();
+
+	errors |= things_env_get_mongo_app_name ();
+
+	errors |= things_env_get_mongo_db ();
 
 	return errors;
 
@@ -92,8 +184,8 @@ static unsigned int things_mongo_connect (void) {
 	bool connected_to_mongo = false;
 
 	mongo_set_uri (MONGO_URI->str);
-	mongo_set_app_name ("things");
-	mongo_set_db_name ("ermiry");
+	mongo_set_app_name (MONGO_APP_NAME->str);
+	mongo_set_db_name (MONGO_DB->str);
 
 	if (!mongo_connect ()) {
 		// test mongo connection
@@ -103,10 +195,10 @@ static unsigned int things_mongo_connect (void) {
 			// open handle to actions collection
 			errors |= actions_collection_get ();
 
-			// open handle to role collection
+			// open handle to roles collection
 			errors |= roles_collection_get ();
 
-			// open handle to user collection
+			// open handle to users collection
 			errors |= users_collection_get ();
 
 			connected_to_mongo = true;
@@ -140,6 +232,52 @@ static unsigned int things_mongo_init (void) {
 
 }
 
+static unsigned int things_init_responses (void) {
+
+	unsigned int retval = 1;
+
+	oki_doki = http_response_json_key_value (
+		(http_status) 200, "oki", "doki"
+	);
+
+	bad_request = http_response_json_key_value (
+		(http_status) 400, "error", "Bad request!"
+	);
+
+	server_error = http_response_json_key_value (
+		(http_status) 500, "error", "Internal server error!"
+	);
+
+	bad_user = http_response_json_key_value (
+		(http_status) 400, "error", "Bad user!"
+	);
+
+	missing_values = http_response_json_key_value (
+		(http_status) 400, "error", "Missing values!"
+	);
+
+	things_works = http_response_json_key_value (
+		(http_status) 200, "msg", "Pocket works!"
+	);
+
+	char *status = c_string_create ("%s - %s", THINGS_VERSION_NAME, THINGS_VERSION_DATE);
+	if (status) {
+		current_version = http_response_json_key_value (
+			(http_status) 200, "version", status
+		);
+
+		free (status);
+	}
+
+	if (
+		oki_doki && bad_request && server_error && bad_user && missing_values
+		&& things_works && current_version
+	) retval = 0;
+
+	return retval;
+
+}
+
 // inits things main values
 unsigned int things_init (void) {
 
@@ -147,9 +285,13 @@ unsigned int things_init (void) {
 
 	if (!things_init_env ()) {
 		errors |= things_mongo_init ();
+
+		errors |= things_users_init ();
+
+		errors |= things_init_responses ();
 	}
 
-	return errors;  
+	return errors; 
 
 }
 
@@ -178,6 +320,21 @@ unsigned int things_end (void) {
 
 	things_roles_end ();
 
+	things_users_end ();
+
+	http_respponse_delete (oki_doki);
+	http_respponse_delete (bad_request);
+	http_respponse_delete (server_error);
+	http_respponse_delete (bad_user);
+	http_respponse_delete (missing_values);
+
+	http_respponse_delete (things_works);
+	http_respponse_delete (current_version);
+
+	str_delete ((String *) MONGO_URI);
+	str_delete ((String *) MONGO_APP_NAME);
+	str_delete ((String *) MONGO_DB);
+
 	return errors;
 
 }
@@ -186,28 +343,36 @@ unsigned int things_end (void) {
 
 #pragma region routes
 
-// GET api/things/
+// GET api/things
 void things_handler (CerverReceive *cr, HttpRequest *request) {
 
-	http_response_json_msg_send (cr, 200, "Things works!");
+	(void) http_response_send (things_works, cr->cerver, cr->connection);
 
 }
 
 // GET api/things/version
 void things_version_handler (CerverReceive *cr, HttpRequest *request) {
 
-	char *status = c_string_create ("%s - %s", THINGS_VERSION_NAME, THINGS_VERSION_DATE);
-	if (status) {
-		http_response_json_msg_send (cr, 200, status);
-		free (status);
-	}
+	(void) http_response_send (current_version, cr->cerver, cr->connection);
 
 }
 
 // GET api/things/auth
 void things_auth_handler (CerverReceive *cr, HttpRequest *request) {
 
-	http_response_json_msg_send (cr, 200, "Things auth!");
+	User *user = (User *) request->decoded_data;
+
+	if (user) {
+		#ifdef POCKET_DEBUG
+		user_print (user);
+		#endif
+
+		(void) http_response_send (oki_doki, cr->cerver, cr->connection);
+	}
+
+	else {
+		(void) http_response_send (bad_user, cr->cerver, cr->connection);
+	}
 
 }
 
