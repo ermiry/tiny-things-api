@@ -16,9 +16,8 @@
 
 #include "handler.h"
 #include "things.h"
+#include "users.h"
 #include "version.h"
-
-#include "models/user.h"
 
 static Cerver *things_api = NULL;
 
@@ -32,7 +31,9 @@ void end (int dummy) {
 		cerver_teardown (things_api);
 	}
 
-	things_end ();
+	(void) things_end ();
+
+	cerver_end ();
 
 	exit (0);
 
@@ -41,30 +42,39 @@ void end (int dummy) {
 static void things_set_things_routes (HttpCerver *http_cerver) {
 
 	/* register top level route */
-	// GET /api/things/
+	// GET /api/things
 	HttpRoute *things_route = http_route_create (REQUEST_METHOD_GET, "api/things", things_handler);
 	http_cerver_route_register (http_cerver, things_route);
 
 	/* register things children routes */
-	// GET api/things/version/
+	// GET api/things/version
 	HttpRoute *things_version_route = http_route_create (REQUEST_METHOD_GET, "version", things_version_handler);
 	http_route_child_add (things_route, things_version_route);
 
-	// GET api/things/auth/
+	// GET api/things/auth
 	HttpRoute *things_auth_route = http_route_create (REQUEST_METHOD_GET, "auth", things_auth_handler);
 	http_route_set_auth (things_auth_route, HTTP_ROUTE_AUTH_TYPE_BEARER);
-	http_route_set_decode_data (things_auth_route, user_parse_from_json, user_delete);
+	http_route_set_decode_data (things_auth_route, things_user_parse_from_json, things_user_delete);
 	http_route_child_add (things_route, things_auth_route);
 
 }
 
 static void start (void) {
 
-	things_api = cerver_create (CERVER_TYPE_WEB, "things-api", atoi (PORT->str), PROTOCOL_TCP, false, 10, 1000);
+	things_api = cerver_create (
+		CERVER_TYPE_WEB,
+		"things-api",
+		atoi (PORT->str),
+		PROTOCOL_TCP,
+		false,
+		10,
+		1000
+	);
+
 	if (things_api) {
 		/*** cerver configuration ***/
-		cerver_set_receive_buffer_size (things_api, 4096);
-		cerver_set_thpool_n_threads (things_api, 4);
+		cerver_set_receive_buffer_size (things_api, CERVER_RECEIVE_BUFFER_SIZE);
+		cerver_set_thpool_n_threads (things_api, CERVER_TH_THREADS);
 		cerver_set_handler_type (things_api, CERVER_HANDLER_TYPE_THREADS);
 
 		/*** web cerver configuration ***/
@@ -105,6 +115,11 @@ int main (int argc, char const **argv) {
 	signal (SIGINT, end);
 	signal (SIGTERM, end);
 
+	// to prevent SIGPIPE when writting to socket
+	signal (SIGPIPE, SIG_IGN);
+
+	cerver_init ();
+
 	cerver_version_print_full ();
 
 	things_version_print_full ();
@@ -117,6 +132,10 @@ int main (int argc, char const **argv) {
 		cerver_log_error ("Failed to init things!");
 	}
 
-	return things_end ();
+	(void) things_end ();
+
+	cerver_end ();
+
+	return 0;
 
 }
