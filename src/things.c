@@ -16,16 +16,20 @@
 #include <cerver/utils/utils.h>
 #include <cerver/utils/log.h>
 
-#include "things.h"
+#include "categories.h"
+#include "labels.h"
 #include "mongo.h"
 #include "roles.h"
+#include "things.h"
+#include "users.h"
 #include "version.h"
 
 #include "models/action.h"
+#include "models/category.h"
+#include "models/label.h"
 #include "models/role.h"
+#include "models/thing.h"
 #include "models/user.h"
-
-#pragma region main
 
 const String *PORT = NULL;
 
@@ -44,6 +48,8 @@ HttpResponse *missing_values = NULL;
 
 static HttpResponse *things_works = NULL;
 static HttpResponse *current_version = NULL;
+
+#pragma region env
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -177,6 +183,89 @@ static unsigned int things_init_env (void) {
 
 }
 
+#pragma endregion
+
+#pragma region things
+
+static Pool *thing_pool = NULL;
+
+static const bson_t *thing_no_user_query_opts = NULL;
+static DoubleList *thing_no_user_select = NULL;
+
+static unsigned int things_thing_init_pool (void) {
+
+	unsigned int retval = 1;
+
+	thing_pool = pool_create (thing_delete);
+	if (thing_pool) {
+		pool_set_create (thing_pool, thing_new);
+		pool_set_produce_if_empty (thing_pool, true);
+		if (!pool_init (thing_pool, thing_new, DEFAULT_THINGS_POOL_INIT)) {
+			retval = 0;
+		}
+
+		else {
+			cerver_log_error ("Failed to init things pool!");
+		}
+	}
+
+	else {
+		cerver_log_error ("Failed to create things pool!");
+	}
+
+	return retval;
+
+}
+
+static unsigned int things_thing_init_query_opts (void) {
+
+	unsigned int retval = 1;
+
+	thing_no_user_select = dlist_init (str_delete, str_comparator);
+	(void) dlist_insert_after (thing_no_user_select, dlist_end (thing_no_user_select), str_new ("title"));
+	(void) dlist_insert_after (thing_no_user_select, dlist_end (thing_no_user_select), str_new ("amount"));
+	(void) dlist_insert_after (thing_no_user_select, dlist_end (thing_no_user_select), str_new ("date"));
+
+	thing_no_user_query_opts = mongo_find_generate_opts (thing_no_user_select);
+
+	if (thing_no_user_query_opts) retval = 0;
+
+	return retval;
+
+}
+
+static unsigned int things_things_init (void) {
+
+	unsigned int errors = 0;
+
+	errors |= things_thing_init_pool ();
+
+	errors |= things_thing_init_query_opts ();
+
+	return errors;
+
+}
+
+static void things_things_end (void) {
+
+	bson_destroy ((bson_t *) thing_no_user_query_opts);
+
+	pool_delete (thing_pool);
+	thing_pool = NULL;
+
+}
+
+static void things_thing_delete (void *thing_ptr) {
+
+	(void) memset (thing_ptr, 0, sizeof (Thing));
+	(void) pool_push (thing_pool, thing_ptr);
+
+}
+
+#pragma endregion
+
+#pragma region main
+
 static unsigned int things_mongo_connect (void) {
 
 	unsigned int errors = 0;
@@ -195,8 +284,17 @@ static unsigned int things_mongo_connect (void) {
 			// open handle to actions collection
 			errors |= actions_collection_get ();
 
+			// open handle to categories collection
+			errors |= categories_collection_get ();
+
+			// open handle to labels collection
+			errors |= labels_collection_get ();
+
 			// open handle to roles collection
 			errors |= roles_collection_get ();
+
+			// open handle to things collection
+			errors |= things_collection_get ();
 
 			// open handle to users collection
 			errors |= users_collection_get ();
@@ -288,6 +386,12 @@ unsigned int things_init (void) {
 
 		errors |= things_users_init ();
 
+		errors |= things_categories_init ();
+
+		errors |= things_labels_init ();
+
+		errors |= things_things_init ();
+
 		errors |= things_init_responses ();
 	}
 
@@ -300,7 +404,13 @@ static unsigned int things_mongo_end (void) {
 	if (mongo_get_status () == MONGO_STATUS_CONNECTED) {
 		actions_collection_close ();
 
+		categories_collection_close ();
+
+		labels_collection_close ();
+
 		roles_collection_close ();
+
+		things_collection_close ();
 
 		users_collection_close ();
 
@@ -321,6 +431,12 @@ unsigned int things_end (void) {
 	things_roles_end ();
 
 	things_users_end ();
+
+	things_categories_end ();
+
+	things_labels_end ();
+
+	things_things_end ();
 
 	http_respponse_delete (oki_doki);
 	http_respponse_delete (bad_request);

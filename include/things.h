@@ -11,6 +11,8 @@
 
 #define DEFAULT_PORT					"5001"
 
+#define DEFAULT_THINGS_POOL_INIT		32
+
 #pragma region main
 
 extern const String *PORT;
