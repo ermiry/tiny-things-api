@@ -71,4 +71,7 @@ extern u8 user_get_by_username (
 
 extern bson_t *user_bson_create (User *user);
 
+// adds one to user's categories count
+extern bson_t *user_create_update_things_categories (void);
+
 #endif

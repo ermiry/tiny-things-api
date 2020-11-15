@@ -282,3 +282,18 @@ bson_t *user_bson_create (User *user) {
 	return doc;
 
 }
+
+// adds one to user's categories count
+bson_t *user_create_update_things_categories (void) {
+
+	bson_t *doc = bson_new ();
+	if (doc) {
+		bson_t inc_doc = { 0 };
+		(void) bson_append_document_begin (doc, "$inc", -1, &inc_doc);
+		(void) bson_append_int32 (&inc_doc, "categoriesCount", -1, 1);
+		(void) bson_append_document_end (doc, &inc_doc);
+	}
+
+	return doc;
+
+}
