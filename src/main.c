@@ -80,6 +80,29 @@ static void things_set_things_routes (HttpCerver *http_cerver) {
 	// DELETE api/things/categories/:id
 	http_route_set_handler (single_category_route, REQUEST_METHOD_DELETE, things_category_delete_handler);
 
+	/*** labels ***/
+
+	// GET api/things/labels
+	HttpRoute *labels_route = http_route_create (REQUEST_METHOD_GET, "labels", things_labels_handler);
+	http_route_set_auth (labels_route, HTTP_ROUTE_AUTH_TYPE_BEARER);
+	http_route_set_decode_data (labels_route, things_user_parse_from_json, things_user_delete);
+	http_route_child_add (things_route, labels_route);
+
+	// POST api/things/labels
+	http_route_set_handler (labels_route, REQUEST_METHOD_POST, things_label_create_handler);
+
+	// GET api/things/labels/:id
+	HttpRoute *single_label_route = http_route_create (REQUEST_METHOD_GET, "labels/:id", things_label_get_handler);
+	http_route_set_auth (single_label_route, HTTP_ROUTE_AUTH_TYPE_BEARER);
+	http_route_set_decode_data (single_label_route, things_user_parse_from_json, things_user_delete);
+	http_route_child_add (things_route, single_label_route);
+
+	// POST api/things/labels/:id
+	http_route_set_handler (single_label_route, REQUEST_METHOD_POST, things_label_update_handler);
+
+	// DELETE api/things/labels/:id
+	http_route_set_handler (single_label_route, REQUEST_METHOD_DELETE, things_label_delete_handler);
+
 }
 
 static void start (void) {
