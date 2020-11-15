@@ -16,6 +16,9 @@
 extern const bson_t *user_categories_query_opts;
 extern DoubleList *user_categories_select;
 
+extern const bson_t *user_labels_query_opts;
+extern DoubleList *user_labels_select;
+
 extern unsigned int things_users_init (void);
 
 extern void things_users_end (void);

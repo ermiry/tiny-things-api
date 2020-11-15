@@ -21,6 +21,9 @@ static Pool *users_pool = NULL;
 const bson_t *user_categories_query_opts = NULL;
 DoubleList *user_categories_select = NULL;
 
+const bson_t *user_labels_query_opts = NULL;
+DoubleList *user_labels_select = NULL;
+
 static unsigned int things_users_init_pool (void) {
 
 	unsigned int retval = 1;
@@ -55,8 +58,13 @@ static unsigned int things_users_init_query_opts (void) {
 
 	user_categories_query_opts = mongo_find_generate_opts (user_categories_select);
 
+	user_labels_select = dlist_init (str_delete, str_comparator);
+	dlist_insert_after (user_labels_select, dlist_end (user_labels_select), str_new ("labelsCount"));
+
+	user_labels_query_opts = mongo_find_generate_opts (user_labels_select);
+
 	if (
-		user_categories_query_opts
+		user_categories_query_opts && user_labels_query_opts
 	) retval = 0;
 
 	return retval;
@@ -79,6 +87,9 @@ void things_users_end (void) {
 
 	dlist_delete (user_categories_select);
 	bson_destroy ((bson_t *) user_categories_query_opts);
+
+	dlist_delete (user_labels_select);
+	bson_destroy ((bson_t *) user_labels_query_opts);
 
 	pool_delete (users_pool);
 	users_pool = NULL;
