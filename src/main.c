@@ -57,6 +57,29 @@ static void things_set_things_routes (HttpCerver *http_cerver) {
 	http_route_set_decode_data (things_auth_route, things_user_parse_from_json, things_user_delete);
 	http_route_child_add (things_route, things_auth_route);
 
+	/*** categories ***/
+
+	// GET api/things/categories
+	HttpRoute *categories_route = http_route_create (REQUEST_METHOD_GET, "categories", things_categories_handler);
+	http_route_set_auth (categories_route, HTTP_ROUTE_AUTH_TYPE_BEARER);
+	http_route_set_decode_data (categories_route, things_user_parse_from_json, things_user_delete);
+	http_route_child_add (things_route, categories_route);
+
+	// POST api/things/categories
+	http_route_set_handler (categories_route, REQUEST_METHOD_POST, things_category_create_handler);
+
+	// GET api/things/categories/:id
+	HttpRoute *single_category_route = http_route_create (REQUEST_METHOD_GET, "categories/:id", things_category_get_handler);
+	http_route_set_auth (single_category_route, HTTP_ROUTE_AUTH_TYPE_BEARER);
+	http_route_set_decode_data (single_category_route, things_user_parse_from_json, things_user_delete);
+	http_route_child_add (things_route, single_category_route);
+
+	// POST api/things/categories/:id
+	http_route_set_handler (single_category_route, REQUEST_METHOD_POST, things_category_update_handler);
+
+	// DELETE api/things/categories/:id
+	http_route_set_handler (single_category_route, REQUEST_METHOD_DELETE, things_category_delete_handler);
+
 }
 
 static void start (void) {
