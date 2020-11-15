@@ -35,21 +35,63 @@ sudo docker run \
 
 ### Main
 
-#### GET /api/pocket
+#### GET /api/things
 **Access:** Public \
-**Description:** Pocket top level route \
+**Description:** Things top level route \
 **Returns:**
   - 200 on success
 
-#### GET api/pocket/version
+#### GET api/things/version
 **Access:** Public \
-**Description:** Returns pocket-api service current version \
+**Description:** Returns things-api service current version \
 **Returns:**
   - 200 and version's json on success
 
-#### GET api/pocket/auth
+#### GET api/things/auth
 **Access:** Private \
 **Description:** Used to test if jwt keys work correctly \
 **Returns:**
   - 200 on success
   - 401 on failed auth
+
+#### GET api/things/categories
+**Access:** Private \
+**Description:** Get all the authenticated user's categories \
+**Returns:**
+  - 200 and categories json on success
+  - 401 on failed auth
+
+#### POST api/things/categories
+**Access:** Private \
+**Description:** A user has requested to create a new category \
+**Returns:**
+  - 200 on success creating category
+  - 400 on failed to create new category
+  - 401 on failed auth
+  - 500 on server error
+
+#### GET api/things/categories/:id
+**Access:** Private \
+**Description:** Returns information about an existing category that belongs to a user \
+**Returns:**
+  - 200 and category's json on success
+  - 401 on failed auth
+  - 404 on category not found
+
+#### POST api/things/categories/:id
+**Access:** Private \
+**Description:** A user wants to update an existing category \
+**Returns:**
+  - 200 on success updating user's category
+  - 400 bad request due to missing values
+  - 401 on failed auth
+  - 500 on server error
+
+#### DELETE api/things/categories/:id
+**Access:** Private \
+**Description:** Deletes an existing user's category \
+**Returns:**
+  - 200 on success deleting user's category
+  - 400 on bad request
+  - 401 on failed auth
+  - 500 on server error
