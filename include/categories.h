@@ -1,5 +1,5 @@
-#ifndef _POCKET_CATEGORIES_H_
-#define _POCKET_CATEGORIES_H_
+#ifndef _THINGS_CATEGORIES_H_
+#define _THINGS_CATEGORIES_H_
 
 #include <bson/bson.h>
 
