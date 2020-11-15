@@ -85,6 +85,56 @@ void things_labels_end (void) {
 
 }
 
+Label *things_label_get_by_id_and_user (
+	const String *label_id, const bson_oid_t *user_oid
+) {
+
+	Label *label = NULL;
+
+	if (label_id) {
+		label = (Label *) pool_pop (labels_pool);
+		if (label) {
+			bson_oid_init_from_string (&label->oid, label_id->str);
+
+			if (label_get_by_oid_and_user (
+				label,
+				&label->oid, user_oid,
+				NULL
+			)) {
+				things_label_delete (label);
+				label = NULL;
+			}
+		}
+	}
+
+	return label;
+
+}
+
+Label *things_label_create (
+	const char *user_id,
+	const char *title, const char *description,
+	const char *color
+) {
+
+	Label *label = (Label *) pool_pop (labels_pool);
+	if (label) {
+		bson_oid_init (&label->oid, NULL);
+
+		bson_oid_init_from_string (&label->user_oid, user_id);
+
+		if (title) (void) strncpy (label->title, title, LABEL_TITLE_LEN);
+		if (description) (void) strncpy (label->description, description, LABEL_DESCRIPTION_LEN);
+
+		if (color) (void) strncpy (label->color, color, LABEL_COLOR_LEN);
+		
+		label->date = time (NULL);
+	}
+
+	return label;
+
+}
+
 void things_label_delete (void *label_ptr) {
 
 	(void) memset (label_ptr, 0, sizeof (Label));

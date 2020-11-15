@@ -1,5 +1,5 @@
-#ifndef _POCKET_LABELS_H_
-#define _POCKET_LABELS_H_
+#ifndef _THINGS_LABELS_H_
+#define _THINGS_LABELS_H_
 
 #include <bson/bson.h>
 
@@ -18,6 +18,16 @@ extern DoubleList *label_no_user_select;
 extern unsigned int things_labels_init (void);
 
 extern void things_labels_end (void);
+
+extern Label *things_label_get_by_id_and_user (
+	const String *label_id, const bson_oid_t *user_oid
+);
+
+extern Label *things_label_create (
+	const char *user_id,
+	const char *title, const char *description,
+	const char *color
+);
 
 extern void things_label_delete (void *label_ptr);
 
