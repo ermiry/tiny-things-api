@@ -95,3 +95,45 @@ sudo docker run \
   - 400 on bad request
   - 401 on failed auth
   - 500 on server error
+
+#### GET api/things/labels
+**Access:** Private \
+**Description:** Get all the authenticated user's labels \
+**Returns:**
+  - 200 and labels json on success
+  - 401 on failed auth
+
+#### POST api/things/labels
+**Access:** Private \
+**Description:** A user has requested to create a new label \
+**Returns:**
+  - 200 on success creating label
+  - 400 on failed to create new label
+  - 401 on failed auth
+  - 500 on server error
+
+#### GET api/things/labels/:id
+**Access:** Private \
+**Description:** Returns information about an existing label that belongs to a user \
+**Returns:**
+  - 200 and label's json on success
+  - 401 on failed auth
+  - 404 on label not found
+
+#### POST api/things/labels/:id
+**Access:** Private \
+**Description:** A user wants to update an existing label \
+**Returns:**
+  - 200 on success updating user's label
+  - 400 bad request due to missing values
+  - 401 on failed auth
+  - 500 on server error
+
+#### DELETE api/things/labels/:id
+**Access:** Private \
+**Description:** Deletes an existing user's label \
+**Returns:**
+  - 200 on success deleting user's label
+  - 400 on bad request
+  - 401 on failed auth
+  - 500 on server error
