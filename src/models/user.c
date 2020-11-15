@@ -102,12 +102,16 @@ static void user_doc_parse (User *user, const bson_t *user_doc) {
 			else if (!strcmp (key, "password") && value->value.v_utf8.str)
 				(void) strncpy (user->password, value->value.v_utf8.str, USER_PASSWORD_LEN);
 
-			else if (!strcmp (key, "transCount")) {
-				user->trans_count = value->value.v_int32;
+			else if (!strcmp (key, "thingsCount")) {
+				user->things_count = value->value.v_int32;
 			}
 
 			else if (!strcmp (key, "categoriesCount")) {
 				user->categories_count = value->value.v_int32;
+			}
+
+			else if (!strcmp (key, "labelsCount")) {
+				user->labels_count = value->value.v_int32;
 			}
 		}
 	}
@@ -291,6 +295,21 @@ bson_t *user_create_update_things_categories (void) {
 		bson_t inc_doc = { 0 };
 		(void) bson_append_document_begin (doc, "$inc", -1, &inc_doc);
 		(void) bson_append_int32 (&inc_doc, "categoriesCount", -1, 1);
+		(void) bson_append_document_end (doc, &inc_doc);
+	}
+
+	return doc;
+
+}
+
+// adds one to user's labels count
+bson_t *user_create_update_things_labels (void) {
+
+	bson_t *doc = bson_new ();
+	if (doc) {
+		bson_t inc_doc = { 0 };
+		(void) bson_append_document_begin (doc, "$inc", -1, &inc_doc);
+		(void) bson_append_int32 (&inc_doc, "labelsCount", -1, 1);
 		(void) bson_append_document_end (doc, &inc_doc);
 	}
 

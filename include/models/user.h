@@ -40,8 +40,9 @@ typedef struct User {
 
 	time_t iat;
 
-	int trans_count;
+	int things_count;
 	int categories_count;
+	int labels_count;
 
 } User;
 
@@ -73,5 +74,8 @@ extern bson_t *user_bson_create (User *user);
 
 // adds one to user's categories count
 extern bson_t *user_create_update_things_categories (void);
+
+// adds one to user's labels count
+extern bson_t *user_create_update_things_labels (void);
 
 #endif
