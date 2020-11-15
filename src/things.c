@@ -51,11 +51,17 @@ static HttpResponse *current_version = NULL;
 
 static HttpResponse *no_user_categories = NULL;
 static HttpResponse *no_user_category = NULL;
-
 static HttpResponse *category_created_success = NULL;
 static HttpResponse *category_created_bad = NULL;
 static HttpResponse *category_deleted_success = NULL;
 static HttpResponse *category_deleted_bad = NULL;
+
+static HttpResponse *no_user_labels = NULL;
+static HttpResponse *no_user_label = NULL;
+static HttpResponse *label_created_success = NULL;
+static HttpResponse *label_created_bad = NULL;
+static HttpResponse *label_deleted_success = NULL;
+static HttpResponse *label_deleted_bad = NULL;
 
 #pragma region env
 
@@ -401,12 +407,41 @@ static unsigned int things_init_responses (void) {
 		(http_status) 400, "error", "Failed to delete category!"
 	);
 
+	/*** labels ****/
+
+	no_user_labels = http_response_json_key_value (
+		(http_status) 404, "msg", "Failed to get user's labels"
+	);
+
+	no_user_label = http_response_json_key_value (
+		(http_status) 404, "msg", "User's label was not found"
+	);
+
+	label_created_success = http_response_json_key_value (
+		(http_status) 200, "oki", "doki"
+	);
+
+	label_created_bad = http_response_json_key_value (
+		(http_status) 400, "error", "Failed to create label!"
+	);
+
+	label_deleted_success = http_response_json_key_value (
+		(http_status) 200, "oki", "doki"
+	);
+
+	label_deleted_bad = http_response_json_key_value (
+		(http_status) 400, "error", "Failed to delete label!"
+	);
+
 	if (
 		oki_doki && bad_request && server_error && bad_user && missing_values
 		&& things_works && current_version
 		&& no_user_categories && no_user_category
 		&& category_created_success && category_created_bad
 		&& category_deleted_success && category_deleted_bad
+		&& no_user_labels && no_user_label
+		&& label_created_success && label_created_bad
+		&& label_deleted_success && label_deleted_bad
 	) retval = 0;
 
 	return retval;
@@ -486,11 +521,17 @@ unsigned int things_end (void) {
 
 	http_respponse_delete (no_user_categories);
 	http_respponse_delete (no_user_category);
-
 	http_respponse_delete (category_created_success);
 	http_respponse_delete (category_created_bad);
 	http_respponse_delete (category_deleted_success);
 	http_respponse_delete (category_deleted_bad);
+
+	http_respponse_delete (no_user_labels);
+	http_respponse_delete (no_user_label);
+	http_respponse_delete (label_created_success);
+	http_respponse_delete (label_created_bad);
+	http_respponse_delete (label_deleted_success);
+	http_respponse_delete (label_deleted_bad);
 
 	str_delete ((String *) MONGO_URI);
 	str_delete ((String *) MONGO_APP_NAME);
