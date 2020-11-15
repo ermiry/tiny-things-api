@@ -9,6 +9,7 @@
 #include <cerver/utils/utils.h>
 #include <cerver/utils/log.h>
 
+#include "mongo.h"
 #include "users.h"
 
 #include "models/user.h"
@@ -16,6 +17,9 @@
 #pragma region main
 
 static Pool *users_pool = NULL;
+
+const bson_t *user_categories_query_opts = NULL;
+DoubleList *user_categories_select = NULL;
 
 static unsigned int things_users_init_pool (void) {
 
@@ -42,17 +46,39 @@ static unsigned int things_users_init_pool (void) {
 
 }
 
+static unsigned int things_users_init_query_opts (void) {
+
+	unsigned int retval = 1;
+
+	user_categories_select = dlist_init (str_delete, str_comparator);
+	dlist_insert_after (user_categories_select, dlist_end (user_categories_select), str_new ("categoriesCount"));
+
+	user_categories_query_opts = mongo_find_generate_opts (user_categories_select);
+
+	if (
+		user_categories_query_opts
+	) retval = 0;
+
+	return retval;
+
+}
+
 unsigned int things_users_init (void) {
 
 	unsigned int errors = 0;
 
 	errors |= things_users_init_pool ();
 
+	errors |= things_users_init_query_opts ();
+
 	return errors;
 
 }
 
 void things_users_end (void) {
+
+	dlist_delete (user_categories_select);
+	bson_destroy ((bson_t *) user_categories_query_opts);
 
 	pool_delete (users_pool);
 	users_pool = NULL;
