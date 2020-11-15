@@ -797,9 +797,87 @@ void things_category_get_handler (CerverReceive *cr, HttpRequest *request) {
 
 }
 
+static u8 things_category_update_handler_internal (
+	Category *category, const String *request_body
+) {
+
+	u8 retval = 1;
+
+	if (request_body) {
+		const char *title = NULL;
+		const char *description = NULL;
+
+		json_error_t error =  { 0 };
+		json_t *json_body = json_loads (request_body->str, 0, &error);
+		if (json_body) {
+			things_category_parse_json (
+				json_body,
+				&title,
+				&description
+			);
+
+			if (title) (void) strncpy (category->title, title, CATEGORY_TITLE_LEN);
+			if (description) (void) strncpy (category->description, description, CATEGORY_DESCRIPTION_LEN);
+
+			json_decref (json_body);
+
+			retval = 0;
+		}
+
+		else {
+			cerver_log_error (
+				"json_loads () - json error on line %d: %s\n", 
+				error.line, error.text
+			);
+		}
+	}
+
+	return retval;
+
+}
+
 // POST api/things/categories/:id
 // a user wants to update an existing category
 void things_category_update_handler (CerverReceive *cr, HttpRequest *request) {
+
+	User *user = (User *) request->decoded_data;
+	if (user) {
+		bson_oid_init_from_string (&user->oid, user->id);
+
+		Category *category = things_category_get_by_id_and_user (
+			request->params[0], &user->oid
+		);
+
+		if (category) {
+			// get update values
+			if (!things_category_update_handler_internal (
+				category, request->body
+			)) {
+				// update the category in the db
+				if (!mongo_update_one (
+					categories_collection,
+					category_query_oid (&category->oid),
+					category_update_bson (category)
+				)) {
+					(void) http_response_send (oki_doki, cr->cerver, cr->connection);
+				}
+
+				else {
+					(void) http_response_send (server_error, cr->cerver, cr->connection);
+				}
+			}
+
+			things_category_delete (category);
+		}
+
+		else {
+			(void) http_response_send (bad_request, cr->cerver, cr->connection);
+		}
+	}
+
+	else {
+		(void) http_response_send (bad_user, cr->cerver, cr->connection);
+	}
 
 }
 
