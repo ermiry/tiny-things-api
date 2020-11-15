@@ -49,6 +49,14 @@ HttpResponse *missing_values = NULL;
 static HttpResponse *things_works = NULL;
 static HttpResponse *current_version = NULL;
 
+static HttpResponse *no_user_categories = NULL;
+static HttpResponse *no_user_category = NULL;
+
+static HttpResponse *category_created_success = NULL;
+static HttpResponse *category_created_bad = NULL;
+static HttpResponse *category_deleted_success = NULL;
+static HttpResponse *category_deleted_bad = NULL;
+
 #pragma region env
 
 #pragma GCC diagnostic push
@@ -367,9 +375,38 @@ static unsigned int things_init_responses (void) {
 		free (status);
 	}
 
+	/*** categories ****/
+
+	no_user_categories = http_response_json_key_value (
+		(http_status) 404, "msg", "Failed to get user's categories"
+	);
+
+	no_user_category = http_response_json_key_value (
+		(http_status) 404, "msg", "User's category was not found"
+	);
+
+	category_created_success = http_response_json_key_value (
+		(http_status) 200, "oki", "doki"
+	);
+
+	category_created_bad = http_response_json_key_value (
+		(http_status) 400, "error", "Failed to create category!"
+	);
+
+	category_deleted_success = http_response_json_key_value (
+		(http_status) 200, "oki", "doki"
+	);
+
+	category_deleted_bad = http_response_json_key_value (
+		(http_status) 400, "error", "Failed to delete category!"
+	);
+
 	if (
 		oki_doki && bad_request && server_error && bad_user && missing_values
 		&& things_works && current_version
+		&& no_user_categories && no_user_category
+		&& category_created_success && category_created_bad
+		&& category_deleted_success && category_deleted_bad
 	) retval = 0;
 
 	return retval;
@@ -446,6 +483,14 @@ unsigned int things_end (void) {
 
 	http_respponse_delete (things_works);
 	http_respponse_delete (current_version);
+
+	http_respponse_delete (no_user_categories);
+	http_respponse_delete (no_user_category);
+
+	http_respponse_delete (category_created_success);
+	http_respponse_delete (category_created_bad);
+	http_respponse_delete (category_deleted_success);
+	http_respponse_delete (category_deleted_bad);
 
 	str_delete ((String *) MONGO_URI);
 	str_delete ((String *) MONGO_APP_NAME);
