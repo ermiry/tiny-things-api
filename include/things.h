@@ -45,6 +45,26 @@ extern void things_version_handler (CerverReceive *cr, HttpRequest *request);
 // GET api/things/auth
 extern void things_auth_handler (CerverReceive *cr, HttpRequest *request);
 
+// GET api/things/categories
+// get all the authenticated user's categories
+extern void things_categories_handler (CerverReceive *cr, HttpRequest *request);
+
+// POST api/things/categories
+// a user has requested to create a new category
+extern void things_category_create_handler (CerverReceive *cr, HttpRequest *request);
+
+// GET api/things/categories/:id
+// returns information about an existing category that belongs to a user
+extern void things_category_get_handler (CerverReceive *cr, HttpRequest *request);
+
+// POST api/things/categories/:id
+// a user wants to update an existing category
+extern void things_category_update_handler (CerverReceive *cr, HttpRequest *request);
+
+// DELETE api/things/categories/:id
+// deletes an existing user's category
+extern void things_category_delete_handler (CerverReceive *cr, HttpRequest *request);
+
 #pragma endregion
 
 #endif

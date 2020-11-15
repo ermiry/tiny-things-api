@@ -355,7 +355,7 @@ static unsigned int things_init_responses (void) {
 	);
 
 	things_works = http_response_json_key_value (
-		(http_status) 200, "msg", "Pocket works!"
+		(http_status) 200, "msg", "Things works!"
 	);
 
 	char *status = c_string_create ("%s - %s", THINGS_VERSION_NAME, THINGS_VERSION_DATE);
@@ -479,7 +479,7 @@ void things_auth_handler (CerverReceive *cr, HttpRequest *request) {
 	User *user = (User *) request->decoded_data;
 
 	if (user) {
-		#ifdef POCKET_DEBUG
+		#ifdef THINGS_DEBUG
 		user_print (user);
 		#endif
 
@@ -489,6 +489,40 @@ void things_auth_handler (CerverReceive *cr, HttpRequest *request) {
 	else {
 		(void) http_response_send (bad_user, cr->cerver, cr->connection);
 	}
+
+}
+
+#pragma endregion
+
+#pragma region categories
+
+// GET api/things/categories
+// get all the authenticated user's categories
+void things_categories_handler (CerverReceive *cr, HttpRequest *request) {
+
+}
+
+// POST api/things/categories
+// a user has requested to create a new category
+void things_category_create_handler (CerverReceive *cr, HttpRequest *request) {
+
+}
+
+// GET api/things/categories/:id
+// returns information about an existing category that belongs to a user
+void things_category_get_handler (CerverReceive *cr, HttpRequest *request) {
+
+}
+
+// POST api/things/categories/:id
+// a user wants to update an existing category
+void things_category_update_handler (CerverReceive *cr, HttpRequest *request) {
+
+}
+
+// DELETE api/things/categories/:id
+// deletes an existing user's category
+void things_category_delete_handler (CerverReceive *cr, HttpRequest *request) {
 
 }
 
