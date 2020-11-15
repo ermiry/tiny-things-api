@@ -41,4 +41,34 @@ extern void label_delete (void *label_ptr);
 
 extern void label_print (Label *label);
 
+extern bson_t *label_query_oid (const bson_oid_t *oid);
+
+extern const bson_t *label_find_by_oid (
+	const bson_oid_t *oid, const bson_t *query_opts
+);
+
+extern u8 label_get_by_oid (
+	Label *label, const bson_oid_t *oid, const bson_t *query_opts
+);
+
+extern const bson_t *label_find_by_oid_and_user (
+	const bson_oid_t *oid, const bson_oid_t *user_oid,
+	const bson_t *query_opts
+);
+
+extern u8 label_get_by_oid_and_user (
+	Label *label,
+	const bson_oid_t *oid, const bson_oid_t *user_oid,
+	const bson_t *query_opts
+);
+
+extern bson_t *label_to_bson (Label *label);
+
+extern bson_t *label_update_bson (Label *label);
+
+// get all the labels that are related to a user
+extern mongoc_cursor_t *labels_get_all_by_user (
+	const bson_oid_t *user_oid, const bson_t *opts
+);
+
 #endif
