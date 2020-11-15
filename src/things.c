@@ -934,7 +934,7 @@ void things_category_delete_handler (CerverReceive *cr, HttpRequest *request) {
 
 #pragma region labels
 
-static char *pocket_labels_handler_generate_json (
+static char *things_labels_handler_generate_json (
 	User *user,
 	mongoc_cursor_t *labels_cursor,
 	size_t *json_len
@@ -986,7 +986,7 @@ void things_labels_handler (CerverReceive *cr, HttpRequest *request) {
 			if (labels_cursor) {
 				// convert them to json and send them back
 				size_t json_len = 0;
-				char *json = pocket_labels_handler_generate_json (
+				char *json = things_labels_handler_generate_json (
 					user, labels_cursor, &json_len
 				);
 
@@ -1023,9 +1023,133 @@ void things_labels_handler (CerverReceive *cr, HttpRequest *request) {
 
 }
 
+static void things_label_parse_json (
+	json_t *json_body,
+	const char **title,
+	const char **description,
+	const char **color
+) {
+
+	// get values from json to create a new label
+	const char *key = NULL;
+	json_t *value = NULL;
+	if (json_typeof (json_body) == JSON_OBJECT) {
+		json_object_foreach (json_body, key, value) {
+			if (!strcmp (key, "title")) {
+				*title = json_string_value (value);
+				(void) printf ("title: \"%s\"\n", *title);
+			}
+
+			else if (!strcmp (key, "description")) {
+				*description = json_string_value (value);
+				(void) printf ("description: \"%s\"\n", *description);
+			}
+
+			else if (!strcmp (key, "color")) {
+				*color = json_string_value (value);
+				(void) printf ("color: \"%s\"\n", *color);
+			}
+		}
+	}
+
+}
+
+static Label *things_label_create_handler_internal (
+	const char *user_id, const String *request_body
+) {
+
+	Label *label = NULL;
+
+	if (request_body) {
+		const char *title = NULL;
+		const char *description = NULL;
+		const char *color = NULL;
+
+		json_error_t error =  { 0 };
+		json_t *json_body = json_loads (request_body->str, 0, &error);
+		if (json_body) {
+			things_label_parse_json (
+				json_body,
+				&title,
+				&description,
+				&color
+			);
+
+			label = things_label_create (
+				user_id,
+				title, description,
+				color
+			);
+
+			json_decref (json_body);
+		}
+
+		else {
+			cerver_log_error (
+				"json_loads () - json error on line %d: %s\n", 
+				error.line, error.text
+			);
+		}
+	}
+
+	return label;
+
+}
+
 // POST api/things/labels
 // a user has requested to create a new label
 void things_label_create_handler (CerverReceive *cr, HttpRequest *request) {
+
+	User *user = (User *) request->decoded_data;
+	if (user) {
+		Label *label = things_label_create_handler_internal (
+			user->id, request->body
+		);
+
+		if (label) {
+			#ifdef LABEL_DEBUG
+			label_print (label);
+			#endif
+
+			if (!mongo_insert_one (
+				labels_collection,
+				label_to_bson (label)
+			)) {
+				// update users values
+				(void) mongo_update_one (
+					users_collection,
+					user_query_id (user->id),
+					user_create_update_things_labels ()
+				);
+
+				// return success to user
+				(void) http_response_send (
+					label_created_success,
+					cr->cerver, cr->connection
+				);
+			}
+
+			else {
+				(void) http_response_send (
+					label_created_bad,
+					cr->cerver, cr->connection
+				);
+			}
+			
+			things_label_delete (label);
+		}
+
+		else {
+			(void) http_response_send (
+				label_created_bad,
+				cr->cerver, cr->connection
+			);
+		}
+	}
+
+	else {
+		(void) http_response_send (bad_user, cr->cerver, cr->connection);
+	}
 
 }
 
