@@ -85,6 +85,32 @@ void things_categories_end (void) {
 
 }
 
+Category *things_category_get_by_id_and_user (
+	const String *category_id, const bson_oid_t *user_oid
+) {
+
+	Category *category = NULL;
+
+	if (category_id) {
+		category = (Category *) pool_pop (categories_pool);
+		if (category) {
+			bson_oid_init_from_string (&category->oid, category_id->str);
+
+			if (category_get_by_oid_and_user (
+				category,
+				&category->oid, user_oid,
+				NULL
+			)) {
+				things_category_delete (category);
+				category = NULL;
+			}
+		}
+	}
+
+	return category;
+
+}
+
 Category *things_category_create (
 	const char *user_id,
 	const char *title, const char *description
