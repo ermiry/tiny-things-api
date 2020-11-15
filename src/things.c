@@ -1157,6 +1157,46 @@ void things_label_create_handler (CerverReceive *cr, HttpRequest *request) {
 // returns information about an existing label that belongs to a user
 void things_label_get_handler (CerverReceive *cr, HttpRequest *request) {
 
+	const String *label_id = request->params[0];
+
+	User *user = (User *) request->decoded_data;
+	if (user) {
+		Label *label = (Label *) pool_pop (labels_pool);
+		if (label) {
+			bson_oid_init_from_string (&label->oid, label_id->str);
+			bson_oid_init_from_string (&label->user_oid, user->id);
+
+			const bson_t *label_bson = label_find_by_oid_and_user (
+				&label->oid, &label->user_oid,
+				label_no_user_query_opts
+			);
+
+			if (label_bson) {
+				size_t json_len = 0;
+				char *json = bson_as_relaxed_extended_json (label_bson, &json_len);
+				if (json) {
+					(void) http_response_json_custom_reference_send (
+						cr, 200, json, json_len
+					);
+
+					free (json);
+				}
+
+				bson_destroy ((bson_t *) label_bson);
+			}
+
+			else {
+				(void) http_response_send (no_user_label, cr->cerver, cr->connection);
+			}
+
+			things_label_delete (label);
+		}
+	}
+
+	else {
+		(void) http_response_send (bad_user, cr->cerver, cr->connection);
+	}
+
 }
 
 // POST api/things/labels/:id
