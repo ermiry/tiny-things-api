@@ -885,6 +885,44 @@ void things_category_update_handler (CerverReceive *cr, HttpRequest *request) {
 // deletes an existing user's category
 void things_category_delete_handler (CerverReceive *cr, HttpRequest *request) {
 
+	// TODO:
+
+}
+
+#pragma endregion
+
+#pragma region labels
+
+// GET api/things/labels
+// get all the authenticated user's labels
+void things_labels_handler (CerverReceive *cr, HttpRequest *request) {
+
+}
+
+// POST api/things/labels
+// a user has requested to create a new label
+void things_label_create_handler (CerverReceive *cr, HttpRequest *request) {
+
+}
+
+// GET api/things/labels/:id
+// returns information about an existing label that belongs to a user
+void things_label_get_handler (CerverReceive *cr, HttpRequest *request) {
+
+}
+
+// POST api/things/labels/:id
+// a user wants to update an existing label
+void things_label_update_handler (CerverReceive *cr, HttpRequest *request) {
+
+}
+
+// DELETE api/things/labels/:id
+// deletes an existing user's label
+void things_label_delete_handler (CerverReceive *cr, HttpRequest *request) {
+
+	// TODO:
+
 }
 
 #pragma endregion
