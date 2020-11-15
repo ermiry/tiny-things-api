@@ -755,6 +755,46 @@ void things_category_create_handler (CerverReceive *cr, HttpRequest *request) {
 // returns information about an existing category that belongs to a user
 void things_category_get_handler (CerverReceive *cr, HttpRequest *request) {
 
+	const String *category_id = request->params[0];
+
+	User *user = (User *) request->decoded_data;
+	if (user) {
+		Category *category = (Category *) pool_pop (categories_pool);
+		if (category) {
+			bson_oid_init_from_string (&category->oid, category_id->str);
+			bson_oid_init_from_string (&category->user_oid, user->id);
+
+			const bson_t *category_bson = category_find_by_oid_and_user (
+				&category->oid, &category->user_oid,
+				category_no_user_query_opts
+			);
+
+			if (category_bson) {
+				size_t json_len = 0;
+				char *json = bson_as_relaxed_extended_json (category_bson, &json_len);
+				if (json) {
+					(void) http_response_json_custom_reference_send (
+						cr, 200, json, json_len
+					);
+
+					free (json);
+				}
+
+				bson_destroy ((bson_t *) category_bson);
+			}
+
+			else {
+				(void) http_response_send (no_user_category, cr->cerver, cr->connection);
+			}
+
+			things_category_delete (category);
+		}
+	}
+
+	else {
+		(void) http_response_send (bad_user, cr->cerver, cr->connection);
+	}
+
 }
 
 // POST api/things/categories/:id
