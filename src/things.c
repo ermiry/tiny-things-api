@@ -934,9 +934,92 @@ void things_category_delete_handler (CerverReceive *cr, HttpRequest *request) {
 
 #pragma region labels
 
+static char *pocket_labels_handler_generate_json (
+	User *user,
+	mongoc_cursor_t *labels_cursor,
+	size_t *json_len
+) {
+
+	char *retval = NULL;
+
+	bson_t *doc = bson_new ();
+	if (doc) {
+		(void) bson_append_int32 (doc, "count", -1, user->labels_count);
+
+		bson_t labels_array = { 0 };
+		(void) bson_append_array_begin (doc, "labels", -1, &labels_array);
+		char buf[16] = { 0 };
+		const char *key = NULL;
+		size_t keylen = 0;
+
+		int i = 0;
+		const bson_t *label_doc = NULL;
+		while (mongoc_cursor_next (labels_cursor, &label_doc)) {
+			keylen = bson_uint32_to_string (i, &key, buf, sizeof (buf));
+			(void) bson_append_document (&labels_array, key, (int) keylen, label_doc);
+
+			bson_destroy ((bson_t *) label_doc);
+
+			i++;
+		}
+		(void) bson_append_array_end (doc, &labels_array);
+
+		retval = bson_as_relaxed_extended_json (doc, json_len);
+	}
+
+	return retval;
+
+}
+
 // GET api/things/labels
 // get all the authenticated user's labels
 void things_labels_handler (CerverReceive *cr, HttpRequest *request) {
+
+	User *user = (User *) request->decoded_data;
+	if (user) {
+		// get user's labels from the db
+		if (!user_get_by_id (user, user->id, user_labels_query_opts)) {
+			mongoc_cursor_t *labels_cursor = labels_get_all_by_user (
+				&user->oid, label_no_user_query_opts
+			);
+
+			if (labels_cursor) {
+				// convert them to json and send them back
+				size_t json_len = 0;
+				char *json = pocket_labels_handler_generate_json (
+					user, labels_cursor, &json_len
+				);
+
+				if (json) {
+					(void) http_response_json_custom_reference_send (
+						cr,
+						200,
+						json, json_len
+					);
+
+					free (json);
+				}
+
+				else {
+					(void) http_response_send (server_error, cr->cerver, cr->connection);
+				}
+
+				mongoc_cursor_destroy (labels_cursor);
+			}
+
+			else {
+				(void) http_response_send (no_user_labels, cr->cerver, cr->connection);
+			}
+		}
+
+		else {
+			(void) http_response_send (bad_user, cr->cerver, cr->connection);
+		}
+	}
+
+	else {
+		(void) http_response_send (bad_user, cr->cerver, cr->connection);
+	}
 
 }
 
