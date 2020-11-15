@@ -630,9 +630,124 @@ void things_categories_handler (CerverReceive *cr, HttpRequest *request) {
 
 }
 
+static void things_category_parse_json (
+	json_t *json_body,
+	const char **title,
+	const char **description
+) {
+
+	// get values from json to create a new category
+	const char *key = NULL;
+	json_t *value = NULL;
+	if (json_typeof (json_body) == JSON_OBJECT) {
+		json_object_foreach (json_body, key, value) {
+			if (!strcmp (key, "title")) {
+				*title = json_string_value (value);
+				(void) printf ("title: \"%s\"\n", *title);
+			}
+
+			else if (!strcmp (key, "description")) {
+				*description = json_string_value (value);
+				(void) printf ("description: \"%s\"\n", *description);
+			}
+		}
+	}
+
+}
+
+static Category *things_category_create_handler_internal (
+	const char *user_id, const String *request_body
+) {
+
+	Category *category = NULL;
+
+	if (request_body) {
+		const char *title = NULL;
+		const char *description = NULL;
+
+		json_error_t error =  { 0 };
+		json_t *json_body = json_loads (request_body->str, 0, &error);
+		if (json_body) {
+			things_category_parse_json (
+				json_body,
+				&title,
+				&description
+			);
+
+			category = things_category_create (
+				user_id,
+				title, description
+			);
+
+			json_decref (json_body);
+		}
+
+		else {
+			cerver_log_error (
+				"json_loads () - json error on line %d: %s\n", 
+				error.line, error.text
+			);
+		}
+	}
+
+	return category;
+
+}
+
 // POST api/things/categories
 // a user has requested to create a new category
 void things_category_create_handler (CerverReceive *cr, HttpRequest *request) {
+
+	User *user = (User *) request->decoded_data;
+	if (user) {
+		Category *category = things_category_create_handler_internal (
+			user->id, request->body
+		);
+
+		if (category) {
+			#ifdef THINGS_DEBUG
+			category_print (category);
+			#endif
+
+			if (!mongo_insert_one (
+				categories_collection,
+				category_to_bson (category)
+			)) {
+				// update users values
+				(void) mongo_update_one (
+					users_collection,
+					user_query_id (user->id),
+					user_create_update_things_categories ()
+				);
+
+				// return success to user
+				(void) http_response_send (
+					category_created_success,
+					cr->cerver, cr->connection
+				);
+			}
+
+			else {
+				(void) http_response_send (
+					category_created_bad,
+					cr->cerver, cr->connection
+				);
+			}
+			
+			things_category_delete (category);
+		}
+
+		else {
+			(void) http_response_send (
+				category_created_bad,
+				cr->cerver, cr->connection
+			);
+		}
+	}
+
+	else {
+		(void) http_response_send (bad_user, cr->cerver, cr->connection);
+	}
 
 }
 
