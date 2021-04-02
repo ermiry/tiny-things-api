@@ -2,27 +2,49 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <cerver/types/string.h>
+
+#include <cerver/collections/dlist.h>
 #include <cerver/collections/pool.h>
 
+#include <cerver/handler.h>
+
+#include <cerver/http/http.h>
+#include <cerver/http/response.h>
 #include <cerver/http/json/json.h>
 
 #include <cerver/utils/utils.h>
 #include <cerver/utils/log.h>
 
-#include "mongo.h"
-#include "users.h"
+#include <cmongo/crud.h>
+#include <cmongo/select.h>
+
+#include "things.h"
+
+#include "controllers/roles.h"
+#include "controllers/users.h"
 
 #include "models/user.h"
 
-#pragma region main
-
 static Pool *users_pool = NULL;
 
-const bson_t *user_categories_query_opts = NULL;
-DoubleList *user_categories_select = NULL;
+const bson_t *user_login_query_opts = NULL;
+static CMongoSelect *user_login_select = NULL;
 
-const bson_t *user_labels_query_opts = NULL;
-DoubleList *user_labels_select = NULL;
+const bson_t *user_transactions_query_opts = NULL;
+static CMongoSelect *user_transactions_select = NULL;
+
+const bson_t *user_categories_query_opts = NULL;
+static CMongoSelect *user_categories_select = NULL;
+
+const bson_t *user_places_query_opts = NULL;
+static CMongoSelect *user_places_select = NULL;
+
+HttpResponse *users_works = NULL;
+HttpResponse *missing_user_values = NULL;
+HttpResponse *wrong_password = NULL;
+HttpResponse *user_not_found = NULL;
+HttpResponse *repeated_email = NULL;
 
 static unsigned int things_users_init_pool (void) {
 
@@ -53,18 +75,68 @@ static unsigned int things_users_init_query_opts (void) {
 
 	unsigned int retval = 1;
 
-	user_categories_select = dlist_init (str_delete, str_comparator);
-	dlist_insert_after (user_categories_select, dlist_end (user_categories_select), str_new ("categoriesCount"));
+	user_login_select = cmongo_select_new ();
+	(void) cmongo_select_insert_field (user_login_select, "name");
+	(void) cmongo_select_insert_field (user_login_select, "username");
+	(void) cmongo_select_insert_field (user_login_select, "email");
+	(void) cmongo_select_insert_field (user_login_select, "password");
+	(void) cmongo_select_insert_field (user_login_select, "role");
+
+	user_login_query_opts = mongo_find_generate_opts (user_login_select);
+
+	user_transactions_select = cmongo_select_new ();
+	(void) cmongo_select_insert_field (user_transactions_select, "transCount");
+
+	user_transactions_query_opts = mongo_find_generate_opts (user_transactions_select);
+
+	user_categories_select = cmongo_select_new ();
+	(void) cmongo_select_insert_field (user_categories_select, "categoriesCount");
 
 	user_categories_query_opts = mongo_find_generate_opts (user_categories_select);
 
-	user_labels_select = dlist_init (str_delete, str_comparator);
-	dlist_insert_after (user_labels_select, dlist_end (user_labels_select), str_new ("labelsCount"));
+	user_places_select = cmongo_select_new ();
+	(void) cmongo_select_insert_field (user_places_select, "placesCount");
 
-	user_labels_query_opts = mongo_find_generate_opts (user_labels_select);
+	user_places_query_opts = mongo_find_generate_opts (user_places_select);
 
 	if (
-		user_categories_query_opts && user_labels_query_opts
+		user_login_query_opts
+		&& user_transactions_query_opts
+		&& user_categories_query_opts
+		&& user_places_query_opts
+	) retval = 0;
+
+	return retval;
+
+}
+
+static unsigned int things_users_init_responses (void) {
+
+	unsigned int retval = 1;
+
+	users_works = http_response_json_key_value (
+		HTTP_STATUS_OK, "msg", "Users works!"
+	);
+
+	missing_user_values = http_response_json_key_value (
+		HTTP_STATUS_BAD_REQUEST, "error", "Missing user values!"
+	);
+
+	wrong_password = http_response_json_key_value (
+		HTTP_STATUS_BAD_REQUEST, "error", "Password is incorrect!"
+	);
+
+	user_not_found = http_response_json_key_value (
+		HTTP_STATUS_NOT_FOUND, "error", "User not found!"
+	);
+
+	repeated_email = http_response_json_key_value (
+		HTTP_STATUS_BAD_REQUEST, "error", "Email was already registered!"
+	);
+
+	if (
+		users_works
+		&& missing_user_values && wrong_password && user_not_found
 	) retval = 0;
 
 	return retval;
@@ -79,20 +151,89 @@ unsigned int things_users_init (void) {
 
 	errors |= things_users_init_query_opts ();
 
+	errors |= things_users_init_responses ();
+
 	return errors;
 
 }
 
 void things_users_end (void) {
 
-	dlist_delete (user_categories_select);
+	cmongo_select_delete (user_login_select);
+	bson_destroy ((bson_t *) user_login_query_opts);
+
+	cmongo_select_delete (user_transactions_select);
+	bson_destroy ((bson_t *) user_transactions_query_opts);
+
+	cmongo_select_delete (user_categories_select);
 	bson_destroy ((bson_t *) user_categories_query_opts);
 
-	dlist_delete (user_labels_select);
-	bson_destroy ((bson_t *) user_labels_query_opts);
+	cmongo_select_delete (user_places_select);
+	bson_destroy ((bson_t *) user_places_query_opts);
+
+	http_response_delete (users_works);
+	http_response_delete (missing_user_values);
+	http_response_delete (wrong_password);
+	http_response_delete (user_not_found);
+	http_response_delete (repeated_email);
 
 	pool_delete (users_pool);
 	users_pool = NULL;
+
+}
+
+User *things_user_create (
+	const char *name,
+	const char *username,
+	const char *email,
+	const char *password,
+	const bson_oid_t *role_oid
+) {
+
+	User *user = (User *) pool_pop (users_pool);
+	if (user) {
+		bson_oid_init (&user->oid, NULL);
+
+		(void) strncpy (user->name, name, USER_NAME_LEN - 1);
+		(void) strncpy (user->username, username, USER_USERNAME_LEN - 1);
+		(void) strncpy (user->email, email, USER_EMAIL_LEN - 1);
+		(void) strncpy (user->password, password, USER_PASSWORD_LEN - 1);
+
+		bson_oid_copy (role_oid, &user->role_oid);
+	}
+
+	return user;
+
+}
+
+User *things_user_get (void) {
+
+	return (User *) pool_pop (users_pool);
+
+}
+
+User *things_user_get_by_email (const char *email) {
+
+	User *user = NULL;
+	if (email) {
+		user = (User *) pool_pop (users_pool);
+		if (user) {
+			if (user_get_by_email (user, email, user_login_query_opts)) {
+				(void) pool_push (users_pool, user);
+				user = NULL;
+			}
+		}
+	}
+
+	return user;
+
+}
+
+u8 things_user_check_by_email (
+	const char *email
+) {
+
+	return user_check_by_email (email);
 
 }
 
@@ -102,7 +243,7 @@ void things_users_end (void) {
 //   "id": "5eb2b13f0051f70011e9d3af",
 //   "name": "Erick Salas",
 //   "role": "god",
-//   "username": "erick",
+//   "username": "erick"
 // }
 void *things_user_parse_from_json (void *user_json_ptr) {
 
@@ -126,13 +267,17 @@ void *things_user_parse_from_json (void *user_json_ptr) {
 			"role", &role,
 			"username", &username
 		)) {
-			(void) strncpy (user->email, email, USER_EMAIL_LEN);
-			(void) strncpy (user->id, id, USER_ID_LEN);
-			(void) strncpy (user->name, name, USER_NAME_LEN);
-			(void) strncpy (user->role, role, USER_ROLE_LEN);
-			(void) strncpy (user->username, username, USER_USERNAME_LEN);
+			(void) strncpy (user->email, email, USER_EMAIL_LEN - 1);
+			(void) strncpy (user->id, id, USER_ID_LEN - 1);
+			(void) strncpy (user->name, name, USER_NAME_LEN - 1);
+			(void) strncpy (user->role, role, USER_ROLE_LEN - 1);
+			(void) strncpy (user->username, username, USER_USERNAME_LEN - 1);
 
-			user_print (user);
+			bson_oid_init_from_string (&user->oid, user->id);
+
+			if (RUNTIME == RUNTIME_TYPE_DEVELOPMENT) {
+				user_print (user);
+			}
 		}
 
 		else {
@@ -153,5 +298,3 @@ void things_user_delete (void *user_ptr) {
 	(void) pool_push (users_pool, user_ptr);
 
 }
-
-#pragma endregion
