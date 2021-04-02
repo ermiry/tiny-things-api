@@ -1,8 +1,6 @@
 #ifndef _THINGS_ERRORS_H_
 #define _THINGS_ERRORS_H_
 
-#include <cerver/handler.h>
-
 #define THINGS_ERROR_MAP(XX)						\
 	XX(0,	NONE, 				None)				\
 	XX(1,	BAD_REQUEST, 		Bad Request)		\
@@ -18,8 +16,13 @@ typedef enum ThingsError {
 
 } ThingsError;
 
-extern const char *things_error_to_string (ThingsError type);
+extern const char *things_error_to_string (
+	const ThingsError type
+);
 
-extern void things_error_send_response (ThingsError error, CerverReceive *cr);
+extern void things_error_send_response (
+	const ThingsError error,
+	const struct _HttpReceive *http_receive
+);
 
 #endif
