@@ -3,20 +3,20 @@
 
 #include <time.h>
 
-#include <mongoc/mongoc.h>
 #include <bson/bson.h>
+#include <mongoc/mongoc.h>
 
 #include <cerver/types/types.h>
 
-#define THING_TITLE_LEN			    1024
-#define THING_DESCRIPTION_LEN			4096
+#define THINGS_COLL_NAME         		"things"
 
-extern mongoc_collection_t *things_collection;
+#define THING_ID_SIZE					32
+#define THING_TITLE_SIZE			    1024
+#define THING_DESCRIPTION_SIZE			4096
 
-// opens handle to things collection
-extern unsigned int things_collection_get (void);
+extern unsigned int things_model_init (void);
 
-extern void things_collection_close (void);
+extern void things_model_end (void);
 
 #define THING_STATUS_MAP(XX)			\
 	XX(0,	NONE, 	    None)		    \
@@ -32,16 +32,17 @@ typedef enum ThingStatus {
 
 } ThingStatus;
 
-extern const char *things_status_to_string (ThingStatus status);
+extern const char *things_status_to_string (const ThingStatus status);
 
 typedef struct Thing {
 
 	bson_oid_t oid;
+	char id[THING_ID_SIZE];
 
 	bson_oid_t user_oid;
 
-	char title[THING_TITLE_LEN];
-	char description[THING_DESCRIPTION_LEN];
+	char title[THING_TITLE_SIZE];
+	char description[THING_DESCRIPTION_SIZE];
 
 	ThingStatus status;
 
@@ -53,6 +54,6 @@ extern void *thing_new (void);
 
 extern void thing_delete (void *thing_ptr);
 
-extern void thing_print (Thing *thing);
+extern void thing_print (const Thing *thing);
 
 #endif

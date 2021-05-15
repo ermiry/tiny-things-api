@@ -7,40 +7,38 @@
 
 #include <cerver/utils/log.h>
 
-#include "mongo.h"
+#include <cmongo/collections.h>
+#include <cmongo/crud.h>
+#include <cmongo/model.h>
 
 #include "models/thing.h"
 
-#define THINGS_COLL_NAME         				"things"
+static CMongoModel *things_model = NULL;
 
-mongoc_collection_t *things_collection = NULL;
+static void user_doc_parse (
+	void *user_ptr, const bson_t *user_doc
+);
 
-// opens handle to thing collection
-unsigned int things_collection_get (void) {
+unsigned int things_model_init (void) {
 
 	unsigned int retval = 1;
 
-	things_collection = mongo_collection_get (THINGS_COLL_NAME);
-	if (things_collection) {
-		cerver_log_debug ("Opened handle to things collection!");
+	things_model = cmongo_model_create (THINGS_COLL_NAME);
+	if (things_model) {
 		retval = 0;
-	}
-
-	else {
-		cerver_log_error ("Failed to get handle to things collection!");
 	}
 
 	return retval;
 
 }
 
-void things_collection_close (void) {
+void things_model_end (void) {
 
-	if (things_collection) mongoc_collection_destroy (things_collection);
+	cmongo_model_delete (things_model);
 
 }
 
-const char *things_status_to_string (ThingStatus status) {
+const char *things_status_to_string (const ThingStatus status) {
 
 	switch (status) {
 		#define XX(num, name, string) case THING_STATUS_##name: return #string;
@@ -69,18 +67,17 @@ void thing_delete (void *thing_ptr) {
 
 }
 
-void thing_print (Thing *thing) {
+void thing_print (const Thing *thing) {
 
 	if (thing) {
-		char buffer[128] = { 0 };
-		bson_oid_to_string (&thing->oid, buffer);
-		(void) printf ("id: %s\n", buffer);
+		(void) printf ("id: %s\n", thing->id);
 
 		(void) printf ("title: %s\n", thing->title);
 		(void) printf ("description: %s\n", thing->description);
 
 		(void) printf ("status: %s\n", things_status_to_string (thing->status));
 
+		char buffer[128] = { 0 };
 		(void) strftime (buffer, 128, "%d/%m/%y - %T", gmtime (&thing->date));
 		(void) printf ("date: %s GMT\n", buffer);
 	}
