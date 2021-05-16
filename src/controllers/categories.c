@@ -6,19 +6,26 @@
 
 #include <cerver/collections/pool.h>
 
+#include <cerver/http/response.h>
 #include <cerver/http/json/json.h>
 
 #include <cerver/utils/log.h>
 
-#include "mongo.h"
-#include "categories.h"
-
 #include "models/category.h"
 
-Pool *categories_pool = NULL;
+#include "controllers/categories.h"
+
+static Pool *categories_pool = NULL;
 
 const bson_t *category_no_user_query_opts = NULL;
 DoubleList *category_no_user_select = NULL;
+
+HttpResponse *no_user_categories = NULL;
+HttpResponse *no_user_category = NULL;
+HttpResponse *category_created_success = NULL;
+HttpResponse *category_created_bad = NULL;
+HttpResponse *category_deleted_success = NULL;
+HttpResponse *category_deleted_bad = NULL;
 
 void things_category_delete (void *category_ptr);
 
@@ -64,6 +71,44 @@ static unsigned int things_categories_init_query_opts (void) {
 
 }
 
+static unsigned int things_categories_init_responses (void) {
+
+	unsigned int retval = 1;
+
+	no_user_categories = http_response_json_key_value (
+		(http_status) 404, "msg", "Failed to get user's categories"
+	);
+
+	no_user_category = http_response_json_key_value (
+		(http_status) 404, "msg", "User's category was not found"
+	);
+
+	category_created_success = http_response_json_key_value (
+		(http_status) 200, "oki", "doki"
+	);
+
+	category_created_bad = http_response_json_key_value (
+		(http_status) 400, "error", "Failed to create category!"
+	);
+
+	category_deleted_success = http_response_json_key_value (
+		(http_status) 200, "oki", "doki"
+	);
+
+	category_deleted_bad = http_response_json_key_value (
+		(http_status) 400, "error", "Failed to delete category!"
+	);
+
+	if (
+		no_user_categories && no_user_category
+		&& category_created_success && category_created_bad
+		&& category_deleted_success && category_deleted_bad
+	) retval = 0;
+
+	return retval;
+
+}
+
 unsigned int things_categories_init (void) {
 
 	unsigned int errors = 0;
@@ -72,6 +117,8 @@ unsigned int things_categories_init (void) {
 
 	errors |= things_categories_init_query_opts ();
 
+	errors |= things_categories_init_responses ();
+
 	return errors;
 
 }
@@ -79,6 +126,13 @@ unsigned int things_categories_init (void) {
 void things_categories_end (void) {
 
 	bson_destroy ((bson_t *) category_no_user_query_opts);
+
+	http_response_delete (no_user_categories);
+	http_response_delete (no_user_category);
+	http_response_delete (category_created_success);
+	http_response_delete (category_created_bad);
+	http_response_delete (category_deleted_success);
+	http_response_delete (category_deleted_bad);
 
 	pool_delete (categories_pool);
 	categories_pool = NULL;
@@ -122,8 +176,8 @@ Category *things_category_create (
 
 		bson_oid_init_from_string (&category->user_oid, user_id);
 
-		if (title) (void) strncpy (category->title, title, CATEGORY_TITLE_LEN);
-		if (description) (void) strncpy (category->description, description, CATEGORY_DESCRIPTION_LEN);
+		if (title) (void) strncpy (category->title, title, CATEGORY_TITLE_SIZE - 1);
+		if (description) (void) strncpy (category->description, description, CATEGORY_DESCRIPTION_SIZE - 1);
 		
 		category->date = time (NULL);
 	}
@@ -132,7 +186,7 @@ Category *things_category_create (
 
 }
 
-void things_category_delete (void *category_ptr) {
+void things_category_return (void *category_ptr) {
 
 	(void) memset (category_ptr, 0, sizeof (Category));
 	(void) pool_push (categories_pool, category_ptr);
