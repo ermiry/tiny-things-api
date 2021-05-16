@@ -24,15 +24,15 @@
 
 #include "models/action.h"
 #include "models/category.h"
-#include "models/place.h"
+#include "models/label.h"
 #include "models/role.h"
 #include "models/user.h"
 
 #include "controllers/categories.h"
-#include "controllers/places.h"
+#include "controllers/labels.h"
 #include "controllers/roles.h"
 #include "controllers/service.h"
-#include "controllers/transactions.h"
+#include "controllers/things.h"
 #include "controllers/users.h"
 
 RuntimeType RUNTIME = RUNTIME_TYPE_NONE;
@@ -306,11 +306,11 @@ static unsigned int things_mongo_connect (void) {
 
 			errors |= categories_model_init ();
 
-			errors |= places_model_init ();
+			errors |= labels_model_init ();
 
 			errors |= roles_model_init ();
 
-			errors |= transactions_model_init ();
+			errors |= things_model_init ();
 
 			errors |= users_model_init ();
 
@@ -361,9 +361,9 @@ unsigned int things_init (void) {
 
 		errors |= things_categories_init ();
 
-		errors |= things_places_init ();
+		errors |= things_labels_init ();
 
-		errors |= things_trans_init ();
+		errors |= things_things_init ();
 
 		retval = errors;
 	}
@@ -379,11 +379,11 @@ static unsigned int things_mongo_end (void) {
 
 		categories_model_end ();
 
-		places_model_end ();
+		labels_model_end ();
 
 		roles_model_end ();
 
-		transactions_model_end ();
+		things_model_end ();
 
 		users_model_end ();
 
@@ -407,9 +407,9 @@ unsigned int things_end (void) {
 
 	things_categories_end ();
 
-	things_places_end ();
+	things_labels_end ();
 
-	things_trans_end ();
+	things_things_end ();
 
 	things_service_end ();
 
