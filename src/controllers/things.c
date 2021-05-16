@@ -78,7 +78,7 @@ static unsigned int things_things_init_query_opts (void) {
 
 }
 
-static unsigned int things_thing_init_responses (void) {
+static unsigned int things_things_init_responses (void) {
 
 	unsigned int retval = 1;
 
@@ -116,11 +116,11 @@ unsigned int things_things_init (void) {
 
 	unsigned int errors = 0;
 
-	errors |= things_thing_init_pool ();
+	errors |= things_things_init_pool ();
 
-	errors |= things_thing_init_query_opts ();
+	errors |= things_things_init_query_opts ();
 
-	errors |= things_thing_init_responses ();
+	errors |= things_things_init_responses ();
 
 	return errors;
 
