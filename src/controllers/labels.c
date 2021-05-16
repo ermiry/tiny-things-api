@@ -6,19 +6,26 @@
 
 #include <cerver/collections/pool.h>
 
+#include <cerver/http/response.h>
 #include <cerver/http/json/json.h>
 
 #include <cerver/utils/log.h>
 
-#include "mongo.h"
-#include "labels.h"
-
 #include "models/label.h"
 
-Pool *labels_pool = NULL;
+#include "controllers/labels.h"
+
+static Pool *labels_pool = NULL;
 
 const bson_t *label_no_user_query_opts = NULL;
 DoubleList *label_no_user_select = NULL;
+
+HttpResponse *no_user_labels = NULL;
+HttpResponse *no_user_label = NULL;
+HttpResponse *label_created_success = NULL;
+HttpResponse *label_created_bad = NULL;
+HttpResponse *label_deleted_success = NULL;
+HttpResponse *label_deleted_bad = NULL;
 
 void things_label_delete (void *label_ptr);
 
@@ -64,6 +71,44 @@ static unsigned int things_labels_init_query_opts (void) {
 
 }
 
+static unsigned int things_labels_init_responses (void) {
+
+	unsigned int retval = 1;
+
+	no_user_labels = http_response_json_key_value (
+		(http_status) 404, "msg", "Failed to get user's labels"
+	);
+
+	no_user_label = http_response_json_key_value (
+		(http_status) 404, "msg", "User's label was not found"
+	);
+
+	label_created_success = http_response_json_key_value (
+		(http_status) 200, "oki", "doki"
+	);
+
+	label_created_bad = http_response_json_key_value (
+		(http_status) 400, "error", "Failed to create label!"
+	);
+
+	label_deleted_success = http_response_json_key_value (
+		(http_status) 200, "oki", "doki"
+	);
+
+	label_deleted_bad = http_response_json_key_value (
+		(http_status) 400, "error", "Failed to delete label!"
+	);
+
+	if (
+		no_user_labels && no_user_label
+		&& label_created_success && label_created_bad
+		&& label_deleted_success && label_deleted_bad
+	) retval = 0;
+
+	return retval;
+
+}
+
 unsigned int things_labels_init (void) {
 
 	unsigned int errors = 0;
@@ -72,6 +117,8 @@ unsigned int things_labels_init (void) {
 
 	errors |= things_labels_init_query_opts ();
 
+	errors |= things_labels_init_responses ();
+
 	return errors;
 
 }
@@ -79,6 +126,13 @@ unsigned int things_labels_init (void) {
 void things_labels_end (void) {
 
 	bson_destroy ((bson_t *) label_no_user_query_opts);
+
+	http_response_delete (no_user_labels);
+	http_response_delete (no_user_label);
+	http_response_delete (label_created_success);
+	http_response_delete (label_created_bad);
+	http_response_delete (label_deleted_success);
+	http_response_delete (label_deleted_bad);
 
 	pool_delete (labels_pool);
 	labels_pool = NULL;
@@ -123,10 +177,10 @@ Label *things_label_create (
 
 		bson_oid_init_from_string (&label->user_oid, user_id);
 
-		if (title) (void) strncpy (label->title, title, LABEL_TITLE_LEN);
-		if (description) (void) strncpy (label->description, description, LABEL_DESCRIPTION_LEN);
+		if (title) (void) strncpy (label->title, title, LABEL_TITLE_SIZE - 1);
+		if (description) (void) strncpy (label->description, description, LABEL_DESCRIPTION_SIZE - 1);
 
-		if (color) (void) strncpy (label->color, color, LABEL_COLOR_LEN);
+		if (color) (void) strncpy (label->color, color, LABEL_COLOR_SIZE - 1);
 		
 		label->date = time (NULL);
 	}

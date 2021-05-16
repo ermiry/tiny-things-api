@@ -3,17 +3,20 @@
 
 #include <bson/bson.h>
 
-#include <cerver/collections/dlist.h>
-#include <cerver/collections/pool.h>
+#include <cerver/types/string.h>
 
 #include "models/label.h"
 
 #define DEFAULT_LABELS_POOL_INIT			32
 
-extern Pool *labels_pool;
+struct _HttpResponse;
 
-extern const bson_t *label_no_user_query_opts;
-extern DoubleList *label_no_user_select;
+extern struct _HttpResponse *no_user_labels;
+extern struct _HttpResponse *no_user_label;
+extern struct _HttpResponse *label_created_success;
+extern struct _HttpResponse *label_created_bad;
+extern struct _HttpResponse *label_deleted_success;
+extern struct _HttpResponse *label_deleted_bad;
 
 extern unsigned int things_labels_init (void);
 
@@ -29,6 +32,6 @@ extern Label *things_label_create (
 	const char *color
 );
 
-extern void things_label_delete (void *label_ptr);
+extern void things_label_return (void *label_ptr);
 
 #endif
