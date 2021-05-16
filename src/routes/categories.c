@@ -14,7 +14,6 @@
 #include <cerver/utils/utils.h>
 #include <cerver/utils/log.h>
 
-#include "errors.h"
 #include "things.h"
 
 #include "controllers/categories.h"
@@ -71,7 +70,7 @@ void things_category_create_handler (
 
 	User *user = (User *) request->decoded_data;
 	if (user) {
-		PocketError error = things_category_create (
+		ThingsError error = things_category_create (
 			user, request->body
 		);
 
@@ -150,7 +149,7 @@ void things_category_update_handler (
 
 	User *user = (User *) request->decoded_data;
 	if (user) {
-		PocketError error = things_category_update (
+		ThingsError error = things_category_update (
 			user, request->params[0], request->body
 		);
 
