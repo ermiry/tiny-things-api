@@ -70,8 +70,12 @@ extern u8 user_get_by_username (
 	User *user, const String *username, const bson_t *query_opts
 );
 
-extern bson_t *user_bson_create (const User *user);
-
 extern unsigned int user_insert_one (const User *user);
+
+extern unsigned int user_add_things (const User *user);
+
+extern unsigned int user_add_category (const User *user);
+
+extern unsigned int user_add_label (const User *user);
 
 #endif

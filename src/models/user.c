@@ -239,7 +239,7 @@ u8 user_get_by_username (
 
 }
 
-bson_t *user_bson_create (const User *user) {
+static bson_t *user_bson_create (const User *user) {
 
 	bson_t *doc = NULL;
 
@@ -261,11 +261,86 @@ bson_t *user_bson_create (const User *user) {
 
 }
 
+// adds one to user's things count
+static bson_t *user_create_update_pocket_things (void) {
+
+	bson_t *doc = bson_new ();
+	if (doc) {
+		bson_t inc_doc = BSON_INITIALIZER;
+		(void) bson_append_document_begin (doc, "$inc", -1, &inc_doc);
+		(void) bson_append_int32 (&inc_doc, "thingsCount", -1, 1);
+		(void) bson_append_document_end (doc, &inc_doc);
+	}
+
+	return doc;
+
+}
+
+// adds one to user's categories count
+static bson_t *user_create_update_pocket_categories (void) {
+
+	bson_t *doc = bson_new ();
+	if (doc) {
+		bson_t inc_doc = BSON_INITIALIZER;
+		(void) bson_append_document_begin (doc, "$inc", -1, &inc_doc);
+		(void) bson_append_int32 (&inc_doc, "categoriesCount", -1, 1);
+		(void) bson_append_document_end (doc, &inc_doc);
+	}
+
+	return doc;
+
+}
+
+// adds one to user's labels count
+static bson_t *user_create_update_pocket_labels (void) {
+
+	bson_t *doc = bson_new ();
+	if (doc) {
+		bson_t inc_doc = BSON_INITIALIZER;
+		(void) bson_append_document_begin (doc, "$inc", -1, &inc_doc);
+		(void) bson_append_int32 (&inc_doc, "labelsCount", -1, 1);
+		(void) bson_append_document_end (doc, &inc_doc);
+	}
+
+	return doc;
+
+}
+
 unsigned int user_insert_one (const User *user) {
 
 	return mongo_insert_one (
 		users_model,
 		user_bson_create (user)
+	);
+
+}
+
+unsigned int user_add_things (const User *user) {
+
+	return mongo_update_one (
+		users_model,
+		user_query_id (user->id),
+		user_create_update_pocket_things ()
+	);
+
+}
+
+unsigned int user_add_category (const User *user) {
+
+	return mongo_update_one (
+		users_model,
+		user_query_id (user->id),
+		user_create_update_pocket_categories ()
+	);
+
+}
+
+unsigned int user_add_label (const User *user) {
+
+	return mongo_update_one (
+		users_model,
+		user_query_id (user->id),
+		user_create_update_pocket_labels ()
 	);
 
 }
