@@ -13,8 +13,8 @@
 #include <cerver/http/response.h>
 #include <cerver/http/json/json.h>
 
-#include <cerver/utils/utils.h>
 #include <cerver/utils/log.h>
+#include <cerver/utils/utils.h>
 
 #include <cmongo/crud.h>
 #include <cmongo/select.h>
@@ -193,11 +193,12 @@ User *things_user_create (
 	User *user = (User *) pool_pop (users_pool);
 	if (user) {
 		bson_oid_init (&user->oid, NULL);
+		bson_oid_to_string (&user->oid, user->id);
 
-		(void) strncpy (user->name, name, USER_NAME_LEN - 1);
-		(void) strncpy (user->username, username, USER_USERNAME_LEN - 1);
-		(void) strncpy (user->email, email, USER_EMAIL_LEN - 1);
-		(void) strncpy (user->password, password, USER_PASSWORD_LEN - 1);
+		(void) strncpy (user->name, name, USER_NAME_SIZE - 1);
+		(void) strncpy (user->username, username, USER_USERNAME_SIZE - 1);
+		(void) strncpy (user->email, email, USER_EMAIL_SIZE - 1);
+		(void) strncpy (user->password, password, USER_PASSWORD_SIZE - 1);
 
 		bson_oid_copy (role_oid, &user->role_oid);
 	}
@@ -249,7 +250,7 @@ void *things_user_parse_from_json (void *user_json_ptr) {
 
 	json_t *user_json = (json_t *) user_json_ptr;
 
-	User *user = user_new ();
+	User *user = (User *) pool_pop (users_pool);
 	if (user) {
 		const char *email = NULL;
 		const char *id = NULL;
@@ -267,11 +268,11 @@ void *things_user_parse_from_json (void *user_json_ptr) {
 			"role", &role,
 			"username", &username
 		)) {
-			(void) strncpy (user->email, email, USER_EMAIL_LEN - 1);
-			(void) strncpy (user->id, id, USER_ID_LEN - 1);
-			(void) strncpy (user->name, name, USER_NAME_LEN - 1);
-			(void) strncpy (user->role, role, USER_ROLE_LEN - 1);
-			(void) strncpy (user->username, username, USER_USERNAME_LEN - 1);
+			(void) strncpy (user->email, email, USER_EMAIL_SIZE - 1);
+			(void) strncpy (user->id, id, USER_ID_SIZE - 1);
+			(void) strncpy (user->name, name, USER_NAME_SIZE - 1);
+			(void) strncpy (user->role, role, USER_ROLE_SIZE - 1);
+			(void) strncpy (user->username, username, USER_USERNAME_SIZE - 1);
 
 			bson_oid_init_from_string (&user->oid, user->id);
 
@@ -289,6 +290,386 @@ void *things_user_parse_from_json (void *user_json_ptr) {
 	}
 
 	return user;
+
+}
+
+unsigned int things_user_generate_token (
+	const User *user, char *json_token, size_t *json_len
+) {
+
+	unsigned int retval = 1;
+
+	HttpJwt *http_jwt = http_cerver_auth_jwt_new ();
+	if (http_jwt) {
+		http_cerver_auth_jwt_add_value_int (http_jwt, "iat", time (NULL));
+		http_cerver_auth_jwt_add_value (http_jwt, "id", user->id);
+		http_cerver_auth_jwt_add_value (http_jwt, "email", user->email);
+		http_cerver_auth_jwt_add_value (http_jwt, "name", user->name);
+		http_cerver_auth_jwt_add_value (http_jwt, "role", things_role_name_get_by_oid (&user->role_oid));
+		http_cerver_auth_jwt_add_value (http_jwt, "username", user->username);
+
+		// generate & send back auth token
+		if (!http_cerver_auth_generate_bearer_jwt_json (
+			http_cerver, http_jwt
+		)) {
+			(void) strncpy (json_token, http_jwt->json, HTTP_JWT_TOKEN_SIZE - 1);
+			*json_len = strlen (http_jwt->json);
+		}
+
+		http_cerver_auth_jwt_delete (http_jwt);
+	}
+
+	return retval;
+
+}
+
+static void users_input_parse_json (
+	json_t *json_body,
+	const char **name,
+	const char **username,
+	const char **email,
+	const char **password,
+	const char **confirm
+) {
+
+	// get values from json to create a new transaction
+	char *string = NULL;
+	const char *key = NULL;
+	json_t *value = NULL;
+	if (json_typeof (json_body) == JSON_OBJECT) {
+		json_object_foreach (json_body, key, value) {
+			if (!strcmp (key, "name")) {
+				string = (char *) json_string_value (value);
+				if (strlen (string)) {
+					*name = string;
+					#ifdef THINGS_DEBUG
+					(void) printf ("name: \"%s\"\n", *name);
+					#endif
+				}
+			}
+
+			else if (!strcmp (key, "username")) {
+				string = (char *) json_string_value (value);
+				if (strlen (string)) {
+					*username = string;
+					#ifdef THINGS_DEBUG
+					(void) printf ("username: \"%s\"\n", *username);
+					#endif
+				}
+			}
+
+			else if (!strcmp (key, "email")) {
+				string = (char *) json_string_value (value);
+				if (strlen (string)) {
+					*email = string;
+					#ifdef THINGS_DEBUG
+					(void) printf ("email: \"%s\"\n", *email);
+					#endif
+				}
+			}
+
+			else if (!strcmp (key, "password")) {
+				string = (char *) json_string_value (value);
+				if (strlen (string)) {
+					*password = string;
+					#ifdef THINGS_DEBUG
+					(void) printf ("password: \"%s\"\n", *password);
+					#endif
+				}
+			}
+
+			else if (!strcmp (key, "confirm")) {
+				string = (char *) json_string_value (value);
+				if (strlen (string)) {
+					*confirm = string;
+					#ifdef THINGS_DEBUG
+					(void) printf ("confirm: \"%s\"\n", *confirm);
+					#endif
+				}
+			}
+		}
+	}
+
+}
+
+static ThingsUserInput things_user_register_validate_input_internal (
+	const char *name,
+	const char *username,
+	const char *email,
+	const char *password,
+	const char *confirm
+) {
+
+	ThingsUserInput user_input = THINGS_USER_INPUT_NONE;
+
+	if (!name) user_input |= THINGS_USER_INPUT_NAME;
+	if (!username) user_input |= THINGS_USER_INPUT_USERNAME;
+	if (!email) user_input |= THINGS_USER_INPUT_EMAIL;
+	if (!password) user_input |= THINGS_USER_INPUT_PASSWORD;
+	if (!confirm) user_input |= THINGS_USER_INPUT_CONFIRM;
+
+	return user_input;
+
+}
+
+static ThingsUserError things_user_register_validate_input (
+	ThingsUserInput *input,
+	const char *name,
+	const char *username,
+	const char *email,
+	const char *password,
+	const char *confirm
+) {
+
+	ThingsUserError error = THINGS_USER_ERROR_NONE;
+
+	*input = things_user_register_validate_input_internal (
+		name, username, email, password, confirm
+	);
+
+	if (*input == THINGS_USER_INPUT_NONE) {
+		if (strcmp (password, confirm)) {
+			*input |= THINGS_USER_INPUT_MATCH;
+			error = THINGS_USER_ERROR_BAD_REQUEST;
+		}
+	}
+
+	else {
+		error = THINGS_USER_ERROR_MISSING_VALUES;
+	}
+
+	return error;
+
+}
+
+static ThingsUserError things_user_register_parse_json (
+	const String *request_body, ThingsUserInput *input,
+	User **user
+) {
+
+	ThingsUserError error = THINGS_USER_ERROR_NONE;
+
+	const char *name = NULL;
+	const char *username = NULL;
+	const char *email = NULL;
+	const char *password = NULL;
+	const char *confirm = NULL;
+
+	json_error_t json_error =  { 0 };
+	json_t *json_body = json_loads (request_body->str, 0, &json_error);
+	if (json_body) {
+		users_input_parse_json (
+			json_body,
+			&name,
+			&username,
+			&email,
+			&password,
+			&confirm
+		);
+
+		error = things_user_register_validate_input (
+			input,
+			name,
+			username,
+			email,
+			password,
+			confirm
+		);
+
+		if (error == THINGS_USER_ERROR_NONE) {
+			*user = things_user_create (
+				name,
+				username,
+				email,
+				password,
+				&common_role->oid
+			);
+		}
+
+		json_decref (json_body);
+	}
+
+	else {
+		#ifdef THINGS_DEBUG
+		cerver_log_error (
+			"json_loads () - json error on line %d: %s\n", 
+			json_error.line, json_error.text
+		);
+		#endif
+
+		error = THINGS_USER_ERROR_BAD_REQUEST;
+	}
+
+	return error;
+
+}
+
+User *things_user_register (
+	const String *request_body, 
+	ThingsUserError *error, ThingsUserInput *input
+) {
+
+	User *retval = NULL;
+
+	if (request_body) {
+		User *user = NULL;
+		*error = things_user_register_parse_json (
+			request_body, input, &user
+		);
+
+		if (*error == THINGS_USER_ERROR_NONE) {
+			if (user) {
+				if (!user_insert_one (user)) {
+					retval = user;
+				}
+
+				else {
+					*error = THINGS_USER_ERROR_SERVER_ERROR;
+				}
+			}
+
+			else {
+				*error = THINGS_USER_ERROR_SERVER_ERROR;
+			}
+		}
+	}
+
+	else {
+		#ifdef THINGS_DEBUG
+		cerver_log_error ("Missing request body to register user!");
+		#endif
+
+		*error = THINGS_USER_ERROR_BAD_REQUEST;
+	}
+
+	return retval;
+
+}
+
+static ThingsUserInput things_user_login_validate_input_internal (
+	const char *email,
+	const char *password
+) {
+
+	ThingsUserInput user_input = THINGS_USER_INPUT_NONE;
+
+	if (!email) user_input |= THINGS_USER_INPUT_EMAIL;
+	if (!password) user_input |= THINGS_USER_INPUT_PASSWORD;
+
+	return user_input;
+
+}
+
+static ThingsUserError things_user_login_parse_json (
+	const String *request_body, ThingsUserInput *input,
+	User *user_values
+) {
+
+	ThingsUserError error = THINGS_USER_ERROR_NONE;
+
+	const char *name = NULL;
+	const char *username = NULL;
+	const char *email = NULL;
+	const char *password = NULL;
+	const char *confirm = NULL;
+
+	json_error_t json_error =  { 0 };
+	json_t *json_body = json_loads (request_body->str, 0, &json_error);
+	if (json_body) {
+		users_input_parse_json (
+			json_body,
+			&name,
+			&username,
+			&email,
+			&password,
+			&confirm
+		);
+
+		*input = things_user_login_validate_input_internal (
+			email, password
+		);
+
+		if (*input == THINGS_USER_INPUT_NONE) {
+			(void) strncpy (user_values->email, email, USER_EMAIL_SIZE - 1);
+			(void) strncpy (user_values->password, password, USER_PASSWORD_SIZE - 1);
+		}
+
+		else {
+			error = THINGS_USER_ERROR_MISSING_VALUES;
+		}
+
+		json_decref (json_body);
+	}
+
+	else {
+		#ifdef THINGS_DEBUG
+		cerver_log_error (
+			"json_loads () - json error on line %d: %s\n", 
+			json_error.line, json_error.text
+		);
+		#endif
+
+		error = THINGS_USER_ERROR_BAD_REQUEST;
+	}
+
+	return error;
+
+}
+
+User *things_user_login (
+	const String *request_body, 
+	ThingsUserError *error, ThingsUserInput *input
+) {
+
+	User *retval = NULL;
+
+	if (request_body) {
+		User user_values = { 0 };
+		*error = things_user_login_parse_json (
+			request_body, input, &user_values
+		);
+
+		if (*error == THINGS_USER_ERROR_NONE) {
+			User *user = things_user_get_by_email (user_values.email);
+			if (user) {
+				if (!strcmp (user->password, user_values.password)) {
+					#ifdef THINGS_DEBUG
+					cerver_log_success ("User %s login -> success", user->id);
+					#endif
+
+					retval = user;
+				}
+
+				else {
+					#ifdef THINGS_DEBUG
+					cerver_log_error ("User %s login -> wrong password", user->id);
+					#endif
+
+					*error = THINGS_USER_ERROR_WRONG_PSWD;
+
+					things_user_delete (user);
+				}
+			}
+
+			else {
+				#ifdef THINGS_DEBUG
+				cerver_log_error ("Failed to get %s user!", user_values.email);
+				#endif
+
+				*error = THINGS_USER_ERROR_NOT_FOUND;
+			}
+		}
+	}
+
+	else {
+		#ifdef THINGS_DEBUG
+		cerver_log_error ("Missing request body to login user!");
+		#endif
+
+		*error = THINGS_USER_ERROR_BAD_REQUEST;
+	}
+
+	return retval;
 
 }
 
