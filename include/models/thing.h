@@ -41,6 +41,8 @@ typedef struct Thing {
 
 	bson_oid_t user_oid;
 
+	bson_oid_t category_oid;
+
 	char title[THING_TITLE_SIZE];
 	char description[THING_DESCRIPTION_SIZE];
 
@@ -55,5 +57,49 @@ extern void *thing_new (void);
 extern void thing_delete (void *thing_ptr);
 
 extern void thing_print (const Thing *thing);
+
+extern bson_t *thing_query_oid (const bson_oid_t *oid);
+
+extern bson_t *thing_query_by_oid_and_user (
+	const bson_oid_t *oid, const bson_oid_t *user_oid
+);
+
+extern u8 thing_get_by_oid (
+	Thing *thing, const bson_oid_t *oid, const bson_t *query_opts
+);
+
+extern u8 thing_get_by_oid_and_user (
+	Thing *thing,
+	const bson_oid_t *oid, const bson_oid_t *user_oid,
+	const bson_t *query_opts
+);
+
+extern u8 thing_get_by_oid_and_user_to_json (
+	const bson_oid_t *oid, const bson_oid_t *user_oid,
+	const bson_t *query_opts,
+	char **json, size_t *json_len
+);
+
+// get all the things that are related to a user
+extern mongoc_cursor_t *things_get_all_by_user (
+	const bson_oid_t *user_oid, const bson_t *opts
+);
+
+extern unsigned int things_get_all_by_user_to_json (
+	const bson_oid_t *user_oid, const bson_t *opts,
+	char **json, size_t *json_len
+);
+
+extern unsigned int thing_insert_one (
+	const Thing *thing
+);
+
+extern unsigned int thing_update_one (
+	const Thing *thing
+);
+
+extern unsigned int thing_delete_one_by_oid_and_user (
+	const bson_oid_t *oid, const bson_oid_t *user_oid
+);
 
 #endif
